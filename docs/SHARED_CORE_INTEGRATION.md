@@ -27,11 +27,13 @@ not carry transitive dependency metadata. The emulator test passes a StringStore
 between the AARs and checks instance/type identity. Archive guards reject embedded
 Core classes/native libraries. This is not published upper-AAR metadata validation.
 
-Harmony builds two separate thin HARs against Core as a development dependency,
-then deletes the upper projects before consuming their HARs plus one explicit
+Harmony builds two separate thin HARs against a normal Core dependency,
+using a project-level override to the local built Core HAR, then deletes the upper projects before consuming their HARs plus one explicit
 Core HAR in an unsigned HAP. A compiled page-level function passes the shared
 NamespacedStringStore type from Alpha to Beta. Archive checks require exactly one
 libmadcore.so/libmadcore_napi.so pair and no nested/native payloads in the upper
 HARs. These are compile/package checks only: no Harmony runtime object identity,
-loader behavior, persistence or transitive package publication is established.
+loader behavior, persistence or remote package publication is established. The final project override resolves both upper dependencies to its one local Core HAR.
 Exact-commit CI determines whether these probes actually passed.
+
+The override mechanism follows [Huawei OHPM documentation](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-oh-package-json5-V5/). Development-only dependencies are not used for imported runtime Core types.

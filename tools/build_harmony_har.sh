@@ -103,7 +103,8 @@ import sys,pathlib,json
 p,c=map(pathlib.Path,sys.argv[1:3]);name=sys.argv[3]
 b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='upper';b['modules'][0]['srcPath']='./upper';(c/'build-profile.json5').write_text(json.dumps(b))
 (c/'upper/src/main/module.json5').write_text(json.dumps({'module':{'name':'upper','type':'har','deviceTypes':['phone']}}))
-(c/'upper/oh-package.json5').write_text(json.dumps({'name':'madcore-upper-'+name,'version':'0.1.0','main':'Index.ets','devDependencies':{'madcore':'file:../artifacts/madcore.har'}}))
+(c/'upper/oh-package.json5').write_text(json.dumps({'name':'madcore-upper-'+name,'version':'0.1.0','main':'Index.ets','dependencies':{'madcore':'0.1.0'}}))
+rootmeta=json.loads((c/'oh-package.json5').read_text());rootmeta['overrides']={'madcore':'file:./artifacts/madcore.har'};(c/'oh-package.json5').write_text(json.dumps(rootmeta))
 source = "import { StringStore, NamespacedStringStore } from 'madcore';\n"
 if name == 'alpha':
     source += "export function alphaStore(backend: StringStore): NamespacedStringStore { return new NamespacedStringStore(backend, 'alpha'); }\n"
@@ -112,7 +113,7 @@ else:
 (c/'upper/Index.ets').write_text(source)
 PYUPPER
   (cd "$upperdir" && ohpm install --all && hvigorw assembleHar --mode module -p module=upper@default -p product=default -p buildMode=release --no-daemon)
-  upperhar=$(find "$upperdir/upper/build" -name '*.har' -type f -print -quit)
+  upperhar=$(find "$upperdir/upper/build" -path '*/outputs/*' -name 'upper.har' -type f -print -quit)
   test -n "$upperhar"
   cp "$upperhar" "$composition/$upper.har"
 done
@@ -130,6 +131,7 @@ p=pathlib.Path(sys.argv[1]);m=p/'entry/oh-package.json5';d=json.loads(m.read_tex
 d['dependencies']['madcore-upper-alpha']='file:../libs/alpha.har'
 d['dependencies']['madcore-upper-beta']='file:../libs/beta.har'
 m.write_text(json.dumps(d))
+rootmeta=json.loads((p/'oh-package.json5').read_text());rootmeta['overrides']={'madcore':'file:./libs/madcore.har'};(p/'oh-package.json5').write_text(json.dumps(rootmeta))
 # Import into a real page so this is not an unreferenced source file.
 page=p/'entry/src/main/ets/pages/Index.ets'
 source=page.read_text()
