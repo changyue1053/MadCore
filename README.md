@@ -39,16 +39,17 @@ python3 tools/check_source_boundary.py
 
 ## 平台状态
 
-- JVM：`6394541` 云端全部测试、Maven 本地发布及仓外 Kotlin/Java 制品消费者通过，包括真实回环 HTTP 行为测试。
-- Android：`6394541` 云端 Release AAR 构建及八模块产物存在性检查通过；未做独立 App 集成/设备测试。
-- iOS：`cc69dec` 包含原生 NSURLSession 适配器的 arm64 真机/模拟器 XCFramework、产物检查及独立 Swift 类型检查通过；模拟器 HTTP 行为测试任务通过，未验证真机 App。
-- 鸿蒙：`6394541` 云端 fork 工具链及 ohosArm64 klib 编译通过。**尚无 NAPI/ArkTS 入口、独立 HAR 和 App，不能称为鸿蒙可接入。**
+- 已验证代码提交：`108015e`，四项云端任务全部通过：https://github.com/changyue1053/MadCore/actions/runs/44256063080 。
+- JVM：全部测试、Maven 本地发布及仓外 Kotlin/Java 制品消费者通过，包括真实回环 HTTP 行为测试。
+- Android：Release AAR 构建及八模块产物存在性检查通过；未做独立 App 集成/设备测试。
+- iOS：原生 NSURLSession 适配器的 arm64 真机/模拟器 XCFramework、独立 Swift 类型检查和模拟器真实 HTTP 行为测试通过；JUnit 门禁确认用例非空且未跳过，未验证真机 App。
+- 鸿蒙：ohosArm64 klib、独立 `libmadcore.so` / NAPI 桥、真实字节码 HAR 构建和仓外 HAR 消费者编译通过；只依赖该 HAR 的独立示例 App 也成功生成未签名 HAP。当前 ArkTS 仅有 ABI版本、墙钟、JSON对象校验三个接口，**未验证设备运行或完整 Core 功能对等，未签名 HAP 不是可直接安装的发布包。**
 - 后续多个 SDK 共用 Core 的静态链接和类型身份策略仍待设计/实测，不承诺当前 umbrella 可直接与其他独立 framework 组合。
 
 ## 下一批
 
-1. 强化 iOS 原生网络运行结果门禁，保留各平台独立构建门禁。
-2. 加三端仓外消费者；完成鸿蒙 HAR/ArkTS 及 Swift 友好 API。
+1. 保留四项构建/测试门禁，扩展 Android 仓外 App 和设备验证。
+2. 扩展鸿蒙 ArkTS 公共 API 和真实设备验证，补 iOS App 集成和 Swift 友好 API。
 3. 扩展网络平台适配、观测和生命周期；已有基础日志/配置不等于完整观测和配置平台。
 4. 可选身份/存储配额/韧性/i18n 按需分包；Compose UI、登录路由、升级业务和测试夹具不进入默认基础包。
 
@@ -62,7 +63,7 @@ python3 tools/check_source_boundary.py
 
 GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `examples/jvm-consumer` 复制到仓库外，只通过 Maven 制品坐标消费。工作流定义不是通过证明，以对应提交的运行结果为准。该 JVM 验证不覆盖三端 App、Swift 导出或鸿蒙 HAR；iOS 有独立 Swift 类型检查门禁。
 
-云端验证记录：https://github.com/changyue1053/MadCore/actions/runs/44245263396 。其中鸿蒙任务独立判定，其他任务通过不代表鸿蒙通过。
+云端验证记录：https://github.com/changyue1053/MadCore/actions/runs/44256063080 。其中鸿蒙任务独立判定，其他任务通过不代表鸿蒙通过。
 
 ## 结构化日志（开发分支）
 
@@ -90,6 +91,12 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 
 `madcore` 增加 ohosArm64 shared library 目标，C ABI v1 仅暴露版本、墙钟毫秒及有 64 KiB 上限的 JSON 对象校验。`harmony/native` 为独立 NAPI 桥源码，直接链接 `libmadcore.so`，不含产品装配、Compose、IM 或动态产品加载。此阶段不是完整 Core 的 ArkTS 映射。C 指针调用方必须提供有效、可读的长度范围；不跨 ABI 持有 Kotlin 对象。
 
-`0249ba3` 的 shared library 链接、AArch64/C 导出符号检查及独立 NAPI 桥编译链接已通过云端验证；`9a4ce27` 进一步通过限定导出面、移除仅属于可执行程序的 Scrt1.o、禁止未解析引用及零入口/无 main 重定位检查；没有伪造 main 桩。HAR 打包、ArkTS 消费和真机运行尚未通过，不能把源码目录称作可发布 HAR。工具链/SDK 仅用于构建，不随仓库分发。
+`0249ba3` 的 shared library 链接、AArch64/C 导出符号检查及独立 NAPI 桥编译链接已通过云端验证；`9a4ce27` 进一步通过限定导出面、移除仅属于可执行程序的 Scrt1.o、禁止未解析引用及零入口/无 main 重定位检查；没有伪造 main 桩。`108015e` 已通过实际字节码 HAR 打包、仓外 ArkTS HAR 消费和独立未签名 HAP 组装。CI 核对 HAR 声明入口、非空 ABC 代码及两份 native 库，绝非仅把源码压缩。尚无真机/模拟器执行结果，不能称为可发布 SDK。工具链/SDK 仅用于构建，不随仓库分发。
 
 官方 Linux CLI 5.1.0.840 的只读探测已校验下载包哈希并确认内置 SDK 5.1.0.125/API18、Hvigor 5.18.5。只读探测未执行 SDK/Hvigor。所有者随后明确同意使用该版本的工具/SDK/Hvigor进行云端构建；分发许可范围仍待明确。只读探测不再自动随 PR 运行，新的 HAR 构建门禁仅使用这一已批准版本。工具协议对使用/下载、再分发及 SDK 用途有约束，不把可下载等同于任意使用许可，也不把 API18 编译候选等同于已验证最低运行版本。
+
+### 鸿蒙独立消费验证
+
+示例位于 `examples/harmony-consumer`。云端将构建出的 HAR 复制到完全独立目录，再安装此本地制品并运行 `assembleHap`，没有依赖源仓或 MadCore Kotlin 源码。测试 App 使用已获准 SDK 的 C++ runtime，仅在临时 CI 目录组包，不发布。API18 只是本次构建配置，不能据此保证最低运行版本。
+
+发布前仍需处理：SDK/运行库分发许可、签名与设备运行、生成声明的 ArkTS 警告、工具链 SemVer 警告，以及 CLI 自带 pnpm 安装时报告的一项 high 安全告警。没有运行 `npm audit fix --force` 或隐藏这些警告。
