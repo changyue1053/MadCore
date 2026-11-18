@@ -19,6 +19,7 @@ jobs:
           java-version: '21'
       - run: python3 tools/check_source_boundary.py
       - run: python3 tools/test_http_fixture.py
+      - run: python3 tools/test_tls_fixture.py
       - name: Test native bridge memory/error paths with host stubs (not device execution)
         run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)
@@ -59,7 +60,7 @@ jobs:
           sudo chmod a+rw /dev/kvm
           consumer=$(mktemp -d)
           cp -R examples/android-consumer/. "$consumer/"
-          python3 tools/http_fixture.py > "$RUNNER_TEMP/android-http-fixture.log" 2>&1 &
+          python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/android-http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT
           curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
@@ -91,7 +92,7 @@ jobs:
         timeout-minutes: 15
         shell: bash
         run: |
-          python3 tools/http_fixture.py > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
+          python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT
           export MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')

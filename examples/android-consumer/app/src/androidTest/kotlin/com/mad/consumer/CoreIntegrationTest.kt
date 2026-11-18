@@ -16,6 +16,16 @@ class CoreIntegrationTest {
         try { block(); fail("Expected $expected") }
         catch (e: HttpTransportException) { assertEquals(expected, e.failure) }
     }
+    @Test fun untrustedTlsIsRejected() {
+        val client = client(timeout = 5000)
+        assertEquals("ready", client.execute(HttpRequest("$base/tls-ready")).body.decodeToString())
+        assertEquals("0", client.execute(HttpRequest("$base/tls-count")).body.decodeToString())
+        val attempts = client.execute(HttpRequest("$base/tls-attempts")).body.decodeToString().toInt()
+        fails(HttpFailure.Io) { client.execute(HttpRequest("https://10.0.2.2:18443/tls-probe")) }
+        assertTrue(client.execute(HttpRequest("$base/tls-attempts")).body.decodeToString().toInt() > attempts)
+        assertEquals("0", client.execute(HttpRequest("$base/tls-count")).body.decodeToString())
+        assertEquals("hello", client.execute(HttpRequest("$base/ok")).body.decodeToString())
+    }
     @Test fun publishedCoreAndRealHttp() {
         assertEquals(7L, ConfigSnapshot(mapOf("count" to "7")).longValue("count"))
         val client = client()

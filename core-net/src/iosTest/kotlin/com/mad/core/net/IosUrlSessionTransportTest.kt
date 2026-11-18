@@ -4,6 +4,7 @@ package com.mad.core.net
 import platform.darwin.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
 
 class IosUrlSessionTransportTest {
@@ -20,6 +21,19 @@ class IosUrlSessionTransportTest {
         return response!!
     }
 
+    @Test fun untrustedTlsIsRejected() {
+        val client = HttpClient(IosUrlSessionTransport(), HttpLimits(allowInsecureHttp = true))
+        fun get(path: String) = offMain { client.execute(HttpRequest("http://127.0.0.1:18082" + path)) }
+        assertEquals("ready", get("/tls-ready").body.decodeToString())
+        assertEquals("0", get("/tls-count").body.decodeToString())
+        val attempts = get("/tls-attempts").body.decodeToString().toInt()
+        assertEquals(HttpFailure.Io, assertFailsWith<HttpTransportException> {
+            offMain { client.execute(HttpRequest("https://127.0.0.1:18443/tls-probe")) }
+        }.failure)
+        assertTrue(get("/tls-attempts").body.decodeToString().toInt() > attempts)
+        assertEquals("0", get("/tls-count").body.decodeToString())
+        assertEquals("hello", get("/ok").body.decodeToString())
+    }
     @Test fun actualLoopbackRequestsAndPolicies() {
         val base = "http://127.0.0.1:18082"
         val client = HttpClient(IosUrlSessionTransport(), HttpLimits(allowInsecureHttp = true))
