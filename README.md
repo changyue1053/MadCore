@@ -165,3 +165,5 @@ Kotlin 与 Harmony ArkTS 提供同规则的 `NamespacedStringStore`，包装宿�
 
 
 通用HTTP增加PUT/DELETE：Kotlin和ArkTS遵循一致规则，POST/PUT允许有界正文（可为空），GET/DELETE拒绝正文。没有增加隐式重试、授权或删除策略；超时不能证明服务端未执行。PATCH/HEAD尚未公开支持。JVM、Android和iOS测试检查服务端实际收到的方法和正文，Harmony仍仅策略/模拟及SDK编译验证。
+
+`core-testkit` 增加可注入的 `ScriptedHttpTransport`：预置FIFO响应或脱敏失败，支持剩余脚本断言与调用计数，方便各新App无需真实后端测试业务成功/失败路径。该工具不保存请求、不开网络、不隐式重试，需单线程使用；它不是TLS/网络模拟器，也不进入默认生产umbrella。

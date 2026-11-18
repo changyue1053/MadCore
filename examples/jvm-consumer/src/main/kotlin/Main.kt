@@ -5,6 +5,12 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val scripted = com.mad.core.testkit.ScriptedHttpTransport()
+    scripted.enqueueResponse(com.mad.core.net.HttpResponse(200, emptyMap(), "fixture".encodeToByteArray()))
+    val fakeClient = com.mad.core.net.HttpClient(scripted)
+    check(fakeClient.execute(com.mad.core.net.HttpRequest("https://example.invalid")).body.decodeToString() == "fixture")
+    scripted.assertExhausted()
+
     var closed = false
     val scope = com.mad.core.lifecycle.ResourceScope()
     scope.register { closed = true }

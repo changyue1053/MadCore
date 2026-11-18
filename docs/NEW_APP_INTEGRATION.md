@@ -62,3 +62,16 @@ Kotlin and ArkTS use the same mapping and validation rules. ArkTS hosts retain t
 original PreferencesStringStore to explicitly await flush. This provides no access
 control against other code that has the backend and does not share data between
 separate OS application sandboxes.
+
+## Deterministic application HTTP tests
+
+Add the opt-in `core-testkit` artifact to the TEST configuration, not the production
+umbrella. `ScriptedHttpTransport` queues HttpResponse or HttpFailure outcomes in
+FIFO order, then injects into the normal HttpClient. Call assertExhausted() after
+the application scenario to catch expected calls that never happened. An extra
+call fails explicitly, not by silently returning an empty success.
+
+The double retains no requests/URLs/headers, opens no sockets and performs no
+sleep/retry. It is owner-thread only. callCount counts consumed outcomes, not
+requests rejected by preflight. It does not verify route matching, TLS, OS
+cancellation or asynchronous timing. Use separate integration tests for those.
