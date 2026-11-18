@@ -138,6 +138,13 @@ iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整
 
 上限在复制分块前检查，失败后取消并关闭；迟到回调不重复结算。连接/空闲/传输超时及总等待计时器均设置，原生超时代码只映射为脱敏分类。上限约束 SDK 保留的数据，不保证平台内部缓冲或单次分块分配大小。没有关闭证书或主机名验证。公开错误不包含 URL、头、正文或平台诊断。
 
-主机测试执行原样 ETS 策略经 Node 类型转换后的逻辑，并将适配器模块导入定向到明确标记的假 SDK，以测试超限、超时、重入取消、迟到完成和清理。它们绝不是鸿蒙网络执行证据。Hvigor 还必须用固定 API18 编译真实 Kit 导入与仓外消费者；真机/模拟器仍需验证重定向目标零命中、无效证书拒绝、分块上限及取消。没有接受新工具/镜像协议，也不据此授予 Kit 分发许可。
+主机测试执行原样 ETS 策略经 Node 类型转换后的逻辑，并将适配器模块导入定向到明确标记的假 SDK，以测试超限、超时、重入取消、迟到完成和清理。它们绝不是鸿蒙网络执行证据。提交 `5d6a4b9c` 已通过固定 API18 的真实 Kit 编译、HAR、仓外消费者及 unsigned HAP 组装；真机/模拟器仍需验证重定向目标零命中、无效证书拒绝、分块上限及取消。没有接受新工具/镜像协议，也不据此授予 Kit 分发许可。
 
 官方依据：[RCP API](https://developer.huawei.com/consumer/en/doc/harmonyos-references-V13/remote-communication-rcp-V13/)，[准备工作](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-v5/remote-communication-preparations-V5)。
+
+
+## 原生桥边界验证
+
+`tools/test_native_bridge.sh` 在 Linux 主机上编译实际 NAPI C 桥，使用明确的假 NAPI/Kotlin C ABI 与地址/未定义行为检查器，覆盖参数错误、UTF-8 长度、嵌入 NUL、64 KiB 上限、转换失败、结果创建失败及注册错误。它只验证桥自身的内存与错误路径，不替代真实 NAPI、Kotlin/Native 运行时、ABI 装载或设备验证。
+
+独立 Harmony 示例增加 `NativeSmoke.ets` 的 11 项原生调用检查，包括 Unicode、空/非法 JSON、带 NUL 文本和 64 KiB 边界。只有未来设备实际执行全部断言才显示通过；当前 CI 仍只负责其编译/打包，不虚构设备测试结果。

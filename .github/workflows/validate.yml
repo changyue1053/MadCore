@@ -18,6 +18,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: python3 tools/check_source_boundary.py
+      - name: Test native bridge memory/error paths with host stubs (not device execution)
+        run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)
         run: |
           node --version

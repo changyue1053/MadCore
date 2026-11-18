@@ -1,4 +1,4 @@
-import { MadCore } from 'madcore';
+import { runNativeSmoke } from './NativeSmoke';
 
 @Entry
 @Component
@@ -13,15 +13,10 @@ struct Index {
 
   private checkCore(): void {
     try {
-      const version: number = MadCore.abiVersion();
-      const validObject: boolean = MadCore.isJsonObject('{"hello":"MadCore"}');
-      const invalidObject: boolean = MadCore.isJsonObject('{');
-      const arrayObject: boolean = MadCore.isJsonObject('[]');
-      this.abi = `ABI version: ${version}`;
-      this.jsonChecks = `Object: ${validObject}; malformed: ${invalidObject}; array: ${arrayObject}`;
-      this.status = version === 1 && validObject && !invalidObject && !arrayObject
-        ? 'Runtime checks passed on this device'
-        : 'Runtime checks failed';
+      const count: number = runNativeSmoke();
+      this.abi = 'Native ABI, epoch and UTF-8 boundary checked';
+      this.jsonChecks = `${count} required native cases passed`;
+      this.status = 'Native boundary smoke passed on this device';
     } catch (_) {
       this.status = 'Native call failed';
       this.abi = 'Unavailable';

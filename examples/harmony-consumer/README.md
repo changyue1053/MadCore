@@ -27,14 +27,15 @@ No `local.properties` or developer-machine paths are committed.
 
 ## Verification limits
 
-The project is prepared, not SDK-built or device-run. API 18 here is a build probe
+The project has passed pinned-SDK unsigned HAP assembly in CI, but has not been device-run. API 18 here is a build probe
 setting, not a certified minimum version for the CPF native runtime. A successful
 HAP build proves archive consumption/ArkTS compilation/packaging, not native load
 or ABI compatibility. Inspect the HAP for all transitive native libraries.
 
 After separate authorized signing and installation, the page invokes `abiVersion`
-and `isJsonObject` through the imported HAR. Expected values: ABI 1, valid object
-true, malformed object false, JSON array false. The UI reports success only after
+and time/JSON calls through the imported HAR. `NativeSmoke.ets` requires 11 cases:
+ABI 1, sane epoch, ASCII/Unicode JSON, rejection of malformed/array/null/empty/NUL
+input, exactly 64 KiB UTF-8 accepted, and 64 KiB + 1 rejected. The UI reports success only after
 those calls execute. Missing-library failures at module import may stop the page
 before its try/catch; device launch logs remain necessary. This app includes no
 native `.so` stub or replacement and cannot make absent native code appear to pass.
