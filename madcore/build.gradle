@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 kotlin {
     sourceSets {
@@ -9,7 +9,7 @@ kotlin {
         }
     }
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
-        def framework = new XCFramework('MadCore')
+        def framework = new XCFrameworkConfig(project, 'MadCore')
         targets.matching { it.name in ['iosArm64', 'iosSimulatorArm64'] }.configureEach {
             binaries.framework {
                 baseName = 'MadCore'
@@ -17,7 +17,7 @@ kotlin {
                 export project(':core-extension')
                 export project(':core-time')
                 export project(':core-json')
-                framework.add(delegate)
+                framework.add(it)
             }
         }
     }
