@@ -30,7 +30,7 @@ def require_cases(directory, required, label, kotlin_target=None):
         for case in root.iter("testcase"):
             classname, name = case.get("classname", ""), case.get("name", "")
             if kotlin_target:
-                prefix, suffix = kotlin_target + ".", "[" + kotlin_target + "]"
+                prefix, suffix = kotlin_target + "Test.", "[" + kotlin_target + "]"
                 if classname.startswith(prefix):
                     classname = classname[len(prefix):]
                 if name.endswith(suffix):

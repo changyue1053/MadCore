@@ -8,4 +8,4 @@ required = {
     ('com.mad.core.lifecycle.ResourceScopeTest', 'rejectionDoesNotTakeOwnershipAndDuplicatesAreExplicit'),
 }
 require_cases("core-lifecycle/build/test-results/iosSimulatorArm64Test", required,
-              "Native iOS lifecycle behavior", kotlin_target="iosSimulatorArm64Test")
+              "Native iOS lifecycle behavior", kotlin_target="iosSimulatorArm64")

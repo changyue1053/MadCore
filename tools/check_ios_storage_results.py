@@ -5,4 +5,4 @@ required = {
     ('com.mad.core.storage.UserDefaultsStringStoreTest', 'nativeDefaultsRoundTripAndTypeSafety'),
 }
 require_cases("core-storage/build/test-results/iosSimulatorArm64Test", required,
-              "Native iOS storage behavior", kotlin_target="iosSimulatorArm64Test")
+              "Native iOS storage behavior", kotlin_target="iosSimulatorArm64")

@@ -18,14 +18,14 @@ class ResultGateTest(unittest.TestCase):
 
     def test_pass_and_native_decoration(self):
         self.check('<testsuite><testcase classname="app.Test" name="behavior"/></testsuite>', True)
-        self.check('<testsuite><testcase classname="iosSimulatorArm64Test.app.Test" name="behavior[iosSimulatorArm64Test]"/></testsuite>', True, 'iosSimulatorArm64Test')
+        self.check('<testsuite><testcase classname="iosSimulatorArm64Test.app.Test" name="behavior[iosSimulatorArm64]"/></testsuite>', True, 'iosSimulatorArm64')
 
     def test_absent_empty_malformed_and_wrong_identity(self):
         for xml in (None, '<testsuite/>', '<broken',
                     '<testsuite><testcase classname="other.app.Test" name="behavior"/></testsuite>',
                     '<testsuite><testcase classname="app.Test" name="behaviorExtra"/></testsuite>',
                     '<testsuite><testcase classname="app.Test" name="behavior[anotherTarget]"/></testsuite>'):
-            self.check(xml, target='iosSimulatorArm64Test')
+            self.check(xml, target='iosSimulatorArm64')
 
     def test_failed_skipped_and_duplicate_cannot_mask_failure(self):
         for tag in ('failure', 'error', 'skipped'):
