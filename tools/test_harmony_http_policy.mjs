@@ -20,6 +20,16 @@ try {
   fails(RcpFailure.InvalidRequest, () => new RcpRequest('https://host', 'GET', { Host: 'private' }));
   fails(RcpFailure.InvalidRequest, () => new RcpRequest('https://host', 'GET', { Test: 'a', test: 'b' }));
   fails(RcpFailure.InvalidRequest, () => new RcpRequest('https://host', 'GET', { Test: 'private\r\n' }));
+  for (const method of ['PATCH', 'HEAD', 'post', '', 'TRACE']) {
+    fails(RcpFailure.InvalidRequest, () => new RcpRequest('https://host', method));
+  }
+  fails(RcpFailure.InvalidRequest, () => new RcpRequest('https://host', 'DELETE', {}, new Uint8Array([1]).buffer));
+  assert.equal(new RcpRequest('https://host', 'DELETE').bodySize, 0);
+  const putBytes = new Uint8Array([4, 5]);
+  const put = new RcpRequest('https://host', 'PUT', {}, putBytes.buffer);
+  putBytes[0] = 99;
+  assert.equal(put.method, 'PUT');
+  assert.deepEqual([...new Uint8Array(put.body)], [4, 5]);
   const bytes = new Uint8Array([1, 2]);
   const headers = { test: 'one' };
   const req = new RcpRequest('https://host', 'POST', headers, bytes.buffer);

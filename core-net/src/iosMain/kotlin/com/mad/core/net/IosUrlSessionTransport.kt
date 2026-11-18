@@ -34,7 +34,7 @@ class IosUrlSessionTransport @Throws(IllegalArgumentException::class) constructo
             setTimeoutInterval(idle)
             setCachePolicy(NSURLRequestReloadIgnoringLocalCacheData)
             request.headers.forEach { (name, value) -> setValue(value, forHTTPHeaderField = name) }
-            if (request.method == HttpMethod.POST) {
+            if (request.method == HttpMethod.POST || request.method == HttpMethod.PUT) {
                 val bytes = request.body
                 setHTTPBody(if (bytes.isEmpty()) NSData() else bytes.usePinned {
                     NSData.create(bytes = it.addressOf(0), length = bytes.size.convert())

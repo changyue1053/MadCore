@@ -1,6 +1,6 @@
 package com.mad.core.net
 
-enum class HttpMethod { GET, POST }
+enum class HttpMethod { GET, POST, PUT, DELETE }
 enum class HttpFailure { InvalidRequest, Timeout, Io, ResponseTooLarge, RequestTooLarge }
 
 /** Deliberately excludes URL, headers, payload and underlying exception messages. */
@@ -22,7 +22,7 @@ class HttpRequest @Throws(IllegalArgumentException::class) constructor(
         require(url.none { it <= ' ' || it == '\\' } && '#' !in url) { "Invalid URL characters" }
         val authority = url.substringAfter("://").substringBefore('/').substringBefore('?')
         require(authority.isNotEmpty() && '@' !in authority) { "Host required; URL user-info forbidden" }
-        require(method != HttpMethod.GET || payload.isEmpty()) { "GET request body is unsupported" }
+        require((method != HttpMethod.GET && method != HttpMethod.DELETE) || payload.isEmpty()) { "GET/DELETE request body is unsupported" }
         require(this.headers.keys.map { it.lowercase() }.distinct().size == this.headers.size) { "Duplicate header name" }
         for ((name, value) in this.headers) {
             require(name.isNotEmpty() && name.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }) { "Invalid header name" }

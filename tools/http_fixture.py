@@ -47,6 +47,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try: self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError): pass
+    def method_echo(self):
+        length = int(self.headers.get('Content-Length', '0'))
+        if length < 0 or length > 1048576:
+            self.send_error(413)
+            return
+        body = self.command.encode('ascii') + b':' + self.rfile.read(length)
+        self.send_response(200)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def do_PUT(self): self.method_echo()
+    def do_DELETE(self): self.method_echo()
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
         self.send_response(201)

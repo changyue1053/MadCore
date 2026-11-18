@@ -31,6 +31,11 @@ class CoreIntegrationTest {
         val client = client()
         assertEquals("hello", client.execute(HttpRequest("$base/ok")).body.decodeToString())
         val posted = client.execute(HttpRequest("$base/echo", HttpMethod.POST, body = "payload".encodeToByteArray()))
+        for (payload in listOf("payload", "")) {
+            assertEquals("PUT:$payload", client.execute(HttpRequest("$base/methods", HttpMethod.PUT,
+                body = payload.encodeToByteArray())).body.decodeToString())
+        }
+        assertEquals("DELETE:", client.execute(HttpRequest("$base/methods", HttpMethod.DELETE)).body.decodeToString())
         assertEquals(201, posted.status)
         assertEquals("payload", posted.body.decodeToString())
         assertEquals(400, client.execute(HttpRequest("$base/error")).status)

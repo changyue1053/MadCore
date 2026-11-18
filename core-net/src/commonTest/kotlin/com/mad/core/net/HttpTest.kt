@@ -6,6 +6,16 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 class HttpTest {
+    @Test fun methodBodyContractIsExplicit() {
+        for (method in listOf(HttpMethod.GET, HttpMethod.DELETE)) {
+            assertFailsWith<IllegalArgumentException> { HttpRequest("https://example.invalid", method, body = byteArrayOf(1)) }
+        }
+        for (method in listOf(HttpMethod.POST, HttpMethod.PUT)) {
+            assertEquals(1, HttpRequest("https://example.invalid", method, body = byteArrayOf(1)).bodySize)
+            assertEquals(0, HttpRequest("https://example.invalid", method).bodySize)
+        }
+    }
+
     @Test fun rejectUnsafeHeadersAndUrls() {
         for (url in listOf("file:///secret", "https://user:pass@example.invalid", "https://example.invalid/#secret", "https://example.invalid/\n")) {
             assertFailsWith<IllegalArgumentException> { HttpRequest(url) }

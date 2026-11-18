@@ -46,22 +46,22 @@ export class RcpLimits {
 
 export class RcpRequest {
   readonly url: string;
-  readonly method: 'GET' | 'POST';
+  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   private headerValues: Record<string, string>;
   private payload: ArrayBuffer;
-  constructor(url: string, method: 'GET' | 'POST' = 'GET',
+  constructor(url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
     headers: Record<string, string> = {}, body: ArrayBuffer = new ArrayBuffer(0)) {
     // Conservative ASCII DNS/IPv4 authority only. IPv6/IDN must not be silently misparsed.
     const match = url.match(/^https?:\/\/([A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)(?::([0-9]{1,5}))?(?:[/?][^#\\]*)?$/);
     if (url.length > 8192 || match === null || /[\u0000-\u0020\u007f\\]/.test(url) ||
-      (method !== 'GET' && method !== 'POST')) {
+      (method !== 'GET' && method !== 'POST' && method !== 'PUT' && method !== 'DELETE')) {
       throw new RcpTransportException(RcpFailure.InvalidRequest);
     }
     if (match[2] !== undefined && (Number(match[2]) < 1 || Number(match[2]) > 65535)) {
       throw new RcpTransportException(RcpFailure.InvalidRequest);
     }
     if (body.byteLength > 16777216) throw new RcpTransportException(RcpFailure.RequestTooLarge);
-    if (method === 'GET' && body.byteLength !== 0) throw new RcpTransportException(RcpFailure.InvalidRequest);
+    if ((method === 'GET' || method === 'DELETE') && body.byteLength !== 0) throw new RcpTransportException(RcpFailure.InvalidRequest);
     this.headerValues = {};
     const names = new Set<string>();
     for (const name of Object.keys(headers)) {

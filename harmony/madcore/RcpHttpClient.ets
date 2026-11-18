@@ -52,7 +52,7 @@ export class RcpHttpClient {
           }
         });
         nativeRequest = new rcp.Request(request.url, request.method, request.headers,
-          request.method === 'POST' ? request.body : undefined);
+          (request.method === 'POST' || request.method === 'PUT') ? request.body : undefined);
         // Explicit streaming destination avoids the default full-response array buffer.
         nativeRequest.destination = (chunk: ArrayBuffer): void => {
           if (settled) return;

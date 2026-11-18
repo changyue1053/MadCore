@@ -7,7 +7,7 @@ production umbrella; `core-testkit` is opt-in. No mad-repo checkout is required.
 | Surface | Available interface | Verification boundary |
 | --- | --- | --- |
 | Kotlin foundation | extension, time, JSON, logging, config, lifecycle | Common tests; Android/iOS independent hosts; Harmony native compilation |
-| Kotlin HTTP | HttpClient/HttpTransport, GET/POST, bounded bytes, immutable copies | JVM and Android URLConnection; iOS NSURLSession; blocking, off UI thread |
+| Kotlin HTTP | HttpClient/HttpTransport, GET/POST/PUT/DELETE, bounded bytes, immutable copies | JVM and Android URLConnection; iOS NSURLSession; blocking, off UI thread |
 | Kotlin storage | StringStore, memory, SharedPreferences, UserDefaults | Android/iOS adapter and native behavior tests; non-secret preferences |
 | Harmony native | MadCore ABI version, epoch, bounded object-JSON predicate | C bridge host sanitizer tests + real native link/HAR compile, not device execution |
 | Harmony HTTP | RcpHttpClient/RcpRequest/RcpResponse/RcpLimits | Async ArkTS, API18 compile + mocked policy/state tests, no device network proof |
@@ -46,3 +46,11 @@ Harmony unsigned HAP assembly is not native load, networking or persistence proo
 Kotlin/ArkTS async bridging remains design-only: see CROSS_RUNTIME_BRIDGE.md.
 Distribution licensing, runtime testing and explicit release/merge approval remain
 separate gates. No toolchain SDK binaries or signing keys belong in this repository.
+
+## HTTP methods
+
+GET and DELETE accept no request body; POST and PUT accept bounded bytes, including
+an empty body. DELETE here sends a request to the host-selected endpoint; the SDK
+does not invent deletion policy or retry an operation. PATCH/HEAD and arbitrary
+method strings are not exposed. Callers must handle uncertain outcomes after
+timeout, especially writes. No retry is implied by method idempotence.

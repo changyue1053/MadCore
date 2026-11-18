@@ -28,6 +28,12 @@ class UrlConnectionTransportTest {
             exchange.sendResponseHeaders(201, body.size.toLong())
             exchange.responseBody.use { it.write(body) }
         }
+        server.createContext("/methods") { exchange ->
+            val input = exchange.requestBody.use { it.readBytes() }.decodeToString()
+            val body = (exchange.requestMethod + ":" + input).encodeToByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
         server.createContext("/redirect") { exchange ->
             exchange.responseHeaders.add("Location", "/ok")
             exchange.sendResponseHeaders(302, -1); exchange.close()
@@ -52,6 +58,11 @@ class UrlConnectionTransportTest {
             assertEquals("hello", client.execute(HttpRequest("$base/ok")).body.decodeToString())
             val post = client.execute(HttpRequest("$base/post", HttpMethod.POST, body = "payload".encodeToByteArray()))
             assertEquals(201, post.status); assertEquals("payload", post.body.decodeToString())
+            for (payload in listOf("payload", "")) {
+                assertEquals("PUT:$payload", client.execute(HttpRequest("$base/methods", HttpMethod.PUT,
+                    body = payload.encodeToByteArray())).body.decodeToString())
+            }
+            assertEquals("DELETE:", client.execute(HttpRequest("$base/methods", HttpMethod.DELETE)).body.decodeToString())
             val error = client.execute(HttpRequest("$base/error"))
             assertEquals(400, error.status); assertEquals("bad", error.body.decodeToString())
             assertEquals(302, client.execute(HttpRequest("$base/redirect")).status)

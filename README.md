@@ -134,7 +134,7 @@ iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整
 
 ## 鸿蒙 RCP 网络路线（实验性、待设备验证）
 
-`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求只支持 GET/POST，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应返回状态、正文和防御性复制的 Map<string, string[]> 响应头，保留平台给出的键及数组值，不拆分逗号字符串，也不能还原平台已合并的信息；仍不是 Kotlin 接口桥。
+`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求支持 GET/POST/PUT/DELETE，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应返回状态、正文和防御性复制的 Map<string, string[]> 响应头，保留平台给出的键及数组值，不拆分逗号字符串，也不能还原平台已合并的信息；仍不是 Kotlin 接口桥。
 
 上限在复制分块前检查，失败后取消并关闭；迟到回调不重复结算。连接/空闲/传输超时及总等待计时器均设置，原生超时代码只映射为脱敏分类。上限约束 SDK 保留的数据，不保证平台内部缓冲或单次分块分配大小。没有关闭证书或主机名验证。公开错误不包含 URL、头、正文或平台诊断。
 
@@ -162,3 +162,6 @@ Harmony Storage 增加原样 ETS 的模拟后端测试，覆盖类型默认值�
 Kotlin 与 Harmony ArkTS 提供同规则的 `NamespacedStringStore`，包装宿主提供的 StringStore，把逻辑键映射为 `namespace.key`。命名空间为1..32位小写字母开头的字母/数字/下划线/连字符（不允许点）；逻辑键最多95位，确保物理键不超过128位。不同实例可复用同一个后端而不覆盖彼此键值，不使用SDK全局状态。
 
 这只是键分区，不是安全沙箱、跨App共享存储、加密、事务或权限隔离。宿主可直接访问后端，因此仍须控制访问及同步；包装器不拥有后端、不清空其他键、不自动flush/close。Harmony需要持有原PreferencesStringStore调用flush。Android/iOS实际平台测试与Harmony原样ETS模拟测试验证相同分区规则，后者不代表设备持久化。
+
+
+通用HTTP增加PUT/DELETE：Kotlin和ArkTS遵循一致规则，POST/PUT允许有界正文（可为空），GET/DELETE拒绝正文。没有增加隐式重试、授权或删除策略；超时不能证明服务端未执行。PATCH/HEAD尚未公开支持。JVM、Android和iOS测试检查服务端实际收到的方法和正文，Harmony仍仅策略/模拟及SDK编译验证。

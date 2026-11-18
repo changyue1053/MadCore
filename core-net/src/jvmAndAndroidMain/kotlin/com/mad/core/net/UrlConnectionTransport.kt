@@ -31,7 +31,7 @@ class UrlConnectionTransport : HttpTransport {
             active.readTimeout = limits.readTimeoutMillis
             active.requestMethod = request.method.name
             for ((name, value) in request.headers) active.setRequestProperty(name, value)
-            if (request.method == HttpMethod.POST) {
+            if (request.method == HttpMethod.POST || request.method == HttpMethod.PUT) {
                 active.doOutput = true
                 val body = request.body
                 active.setFixedLengthStreamingMode(body.size)

@@ -40,6 +40,11 @@ class IosUrlSessionTransportTest {
         fun execute(path: String) = offMain { client.execute(HttpRequest(base + path)) }
         assertEquals("hello", execute("/ok").body.decodeToString())
         val post = offMain { client.execute(HttpRequest("$base/post", HttpMethod.POST, body = "payload".encodeToByteArray())) }
+        for (payload in listOf("payload", "")) {
+            assertEquals("PUT:$payload", offMain { client.execute(HttpRequest("$base/methods", HttpMethod.PUT,
+                body = payload.encodeToByteArray())) }.body.decodeToString())
+        }
+        assertEquals("DELETE:", offMain { client.execute(HttpRequest("$base/methods", HttpMethod.DELETE)) }.body.decodeToString())
         assertEquals(201, post.status)
         assertEquals("payload", post.body.decodeToString())
         assertEquals("0", execute("/redirect-count").body.decodeToString())

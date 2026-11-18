@@ -47,6 +47,20 @@ try {
   state.headers['set-cookie'].pop();
   assert.equal(state.closes, 1);
   assert.equal(state.cancels, 0);
+  for (const method of ['GET', 'POST', 'PUT', 'DELETE']) {
+    reset('success');
+    const hasBody = method === 'POST' || method === 'PUT';
+    const payload = hasBody ? new Uint8Array([0, 17, 255]).buffer : new ArrayBuffer(0);
+    await client.execute(new RcpRequest('https://example.test/method', method, {}, payload));
+    assert.equal(state.request.method, method);
+    if (hasBody) {
+      assert.deepEqual([...new Uint8Array(state.request.content)], [0, 17, 255]);
+    } else {
+      assert.equal(state.request.content, undefined);
+    }
+    assert.equal(state.closes, 1);
+    assert.equal(state.cancels, 0);
+  }
   reset('redirect');
   assert.equal((await client.execute(request)).status, 302);
   assert.equal(state.configuration.requestConfiguration.transfer.autoRedirect, false);
