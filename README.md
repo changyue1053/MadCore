@@ -100,3 +100,15 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 示例位于 `examples/harmony-consumer`。云端将构建出的 HAR 复制到完全独立目录，再安装此本地制品并运行 `assembleHap`，没有依赖源仓或 MadCore Kotlin 源码。测试 App 使用已获准 SDK 的 C++ runtime，仅在临时 CI 目录组包，不发布。API18 只是本次构建配置，不能据此保证最低运行版本。
 
 发布前仍需处理：SDK/运行库分发许可、签名与设备运行、生成声明的 ArkTS 警告、工具链 SemVer 警告，以及 CLI 自带 pnpm 安装时报告的一项 high 安全告警。没有运行 `npm audit fix --force` 或隐藏这些警告。
+
+## 受限本地字符串存储（开发中）
+
+`core-storage` 提供 `StringStore`、单线程 `MemoryStringStore`、Android `SharedPreferencesStringStore` 和 iOS `UserDefaultsStringStore`。仅用于非敏感偏好：键为 1..128 字符的小写 ASCII 标识符，值限 64 KiB UTF-8；空字符串不等于缺失。无枚举/清空全部、事务、加密、多进程一致性或崩溃持久性承诺。错误不包含键值或平台诊断。宿主提供独立文件/suite，并管理备份策略与线程。
+
+Android 使用同步 commit，失败返回 Backend，但平台内存可能已经变化，失败不等于回滚。iOS 遵循 UserDefaults 异步写盘语义，不调用 Apple 不建议使用的 synchronize；只确认内存更新，注册默认值可能在删除后重新出现。测试重新构造适配器，不冒充进程重启或掉电恢复验证。鸿蒙目前只有公共契约/内存实现，尚未加入 ArkTS preferences 适配及跨语言映射。
+
+Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主调用的包装 API，对应 C56D.1 的候选用途。发布前必须将该声明正确打包，并审查时间等其他 API 的理由；当前不能据此宣称 App Store 合规。参见 [Apple 官方理由说明](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。
+
+### Android 独立运行已验证
+
+`3f46501` 的 [云端运行](https://github.com/changyue1053/MadCore/actions/runs/44258322761) 已通过仓外 Maven 消费、APK 编译及 API30 标准 AOSP x86_64 模拟器真实网络测试。该记录不覆盖本节新加的存储代码；存储行为以之后对应提交 CI 为准。未接受 ATD 专用协议，标准镜像使用 runner 已有 SDK 许可；没有自动同意命令。真机、API24 和真实公网 TLS 尚未验证。

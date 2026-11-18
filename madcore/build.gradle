@@ -9,6 +9,7 @@ kotlin {
             api project(':core-logging')
             api project(':core-config')
             api project(':core-net')
+            api project(':core-storage')
         }
     }
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
@@ -23,6 +24,7 @@ kotlin {
                 export project(':core-logging')
                 export project(':core-config')
                 export project(':core-net')
+                export project(':core-storage')
                 framework.add(it)
             }
         }

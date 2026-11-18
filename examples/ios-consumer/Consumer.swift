@@ -15,3 +15,10 @@ func constructNativeTransport() throws {
     let transport: HttpTransport = try IosUrlSessionTransport(callTimeoutMillis: 30_000)
     _ = transport
 }
+
+func useMemoryStorage() throws {
+    let store: StringStore = MemoryStringStore()
+    try store.put(key: "theme", value: "dark")
+    _ = try store.get(key: "theme")
+    try store.remove(key: "theme")
+}

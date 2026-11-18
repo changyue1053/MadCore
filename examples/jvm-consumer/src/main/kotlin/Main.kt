@@ -5,6 +5,11 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val store = com.mad.core.storage.MemoryStringStore()
+    store.put("theme", "dark")
+    check(store.get("theme") == "dark")
+    store.remove("theme")
+    check(store.get("theme") == null)
     val request = com.mad.core.net.HttpRequest("https://example.invalid")
     check(request.method == com.mad.core.net.HttpMethod.GET)
     val transport: com.mad.core.net.HttpTransport = com.mad.core.net.UrlConnectionTransport()

@@ -14,12 +14,16 @@ for entry in manifest['files']:
     digest = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
     if digest != entry['git_blob']:
         errors.append('source changed: ' + entry['destination'])
-allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.')
+allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.', 'com.mad.core.storage.')
 for path in list(ROOT.glob('core-*/src/**/*.kt')) + list(ROOT.glob('madcore/src/**/*.kt')):
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
         platform_allowed = ()
         if 'madcore/src/ohosArm64Main/' in str(path.relative_to(ROOT)):
             platform_allowed = ('kotlinx.cinterop.',)
+        if 'core-storage/src/androidMain/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('android.content.',)
+        if 'core-storage/src/iosMain/' in str(path.relative_to(ROOT)) or 'core-storage/src/iosTest/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('platform.Foundation.',)
         if 'core-net/src/jvmAndAndroidMain/' in str(path.relative_to(ROOT)):
             platform_allowed = ('java.io.', 'java.net.')
         if 'core-net/src/jvmTest/' in str(path.relative_to(ROOT)):
