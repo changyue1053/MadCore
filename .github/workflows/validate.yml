@@ -78,7 +78,7 @@ jobs:
           consumer=$(mktemp -d)
           cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
-      - name: Run actual iOS Simulator HTTP tests
+      - name: Run native and independent iOS host behavior tests
         timeout-minutes: 15
         shell: bash
         run: |
@@ -92,6 +92,7 @@ jobs:
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
           python3 tools/check_ios_storage_results.py
+          bash tools/test_ios_host.sh
   harmony-native-har:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
