@@ -11,10 +11,13 @@ test -s "$sysroot/usr/include/napi/native_api.h"
 # No fake main stub: inspect the compiler's startup-object choice before claiming loadability.
 undefined=$(readelf --dyn-syms --wide "$lib/libmadcore.so" | awk '$7 == "UND" {print $8}' | sort -u)
 printf '%s\n' "$undefined"
-if grep -qx main <<< "$undefined"; then
-  echo 'Invalid shared library: executable startup main is unresolved'
+# Some ELF linkers retain an unreferenced UND table entry after discarding a section.
+# A retained relocation, rather than the name alone, creates a loader requirement.
+if readelf --relocs --wide "$lib/libmadcore.so" | awk '$5 ~ /^main(@|$)/ {found=1} END {exit !found}'; then
+  echo 'Invalid shared library: executable startup still references main'
   exit 1
 fi
+readelf -h "$lib/libmadcore.so" | grep -E 'Entry point address:[[:space:]]+0x0$'
 readelf -d "$lib/libmadcore.so" | grep -E 'NEEDED|SONAME'
 readelf --dyn-syms --wide "$lib/libmadcore.so" | grep OH_HiDebug || true
 readelf --relocs --wide "$lib/libmadcore.so" | grep OH_HiDebug || true
