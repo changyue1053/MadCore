@@ -22,6 +22,7 @@ jobs:
       - run: python3 tools/test_tls_fixture.py
       - run: python3 tools/test_jvm_classpath.py
       - run: python3 tools/test_publication_graph.py
+      - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - name: Test native bridge memory/error paths with host stubs (not device execution)
         run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)

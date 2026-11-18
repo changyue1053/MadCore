@@ -11,6 +11,7 @@ production umbrella; `core-testkit` is opt-in. No mad-repo checkout is required.
 | Kotlin storage | StringStore, memory, SharedPreferences, UserDefaults | Android/iOS adapter and native behavior tests; non-secret preferences |
 | Harmony native | MadCore ABI version, epoch, bounded object-JSON predicate | C bridge host sanitizer tests + real native link/HAR compile, not device execution |
 | Harmony HTTP | RcpHttpClient/RcpRequest/RcpResponse/RcpLimits | Async ArkTS, API18 compile + mocked policy/state tests, no device network proof |
+| Harmony lifecycle | ResourceScope / CloseableResource | Exact-source host tests + API18 compile; host-serialized, no device proof |
 | Harmony storage | PreferencesStringStore | Host-provided preferences; API18 compile + mocked tests, no persistence proof |
 
 ## Host responsibilities
@@ -54,3 +55,5 @@ an empty body. DELETE here sends a request to the host-selected endpoint; the SD
 does not invent deletion policy or retry an operation. PATCH/HEAD and arbitrary
 method strings are not exposed. Callers must handle uncertain outcomes after
 timeout, especially writes. No retry is implied by method idempotence.
+
+For the finite remaining delivery gates, see [DELIVERY_GATES.md](DELIVERY_GATES.md).
