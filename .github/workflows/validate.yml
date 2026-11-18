@@ -105,3 +105,5 @@ jobs:
           done
           echo 'Inspect available NAPI build prerequisites for next stage'
           find "$HOME/.konan/dependencies" -name native_api.h -o -name libace_napi.z.so -o -name clang++
+      - name: Compile standalone NAPI bridge against pinned sysroot
+        run: bash tools/build_harmony_napi.sh

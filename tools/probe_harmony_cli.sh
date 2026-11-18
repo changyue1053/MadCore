@@ -61,19 +61,26 @@ with zipfile.ZipFile(z) as a:
         metadata=base in ('oh-uni-package.json','sdk-pkg.json','sdk-info.json','ohos-sdk.json','version.txt')
         # Include Hvigor/plugin/node manifests and bundle root manifests, not all dependencies.
         manifest=base=='package.json' and ('/hvigor/' in name.lower() or 'hvigor-ohos-plugin/' in name.lower() or len(pathlib.PurePosixPath(name).parts)<=3)
-        if license_file or metadata or manifest:
+        if (license_file or metadata or manifest) and '/node_modules/' not in name:
             print('INVENTORY '+json.dumps({'path':name,'bytes':i.file_size,'compressed':i.compress_size,'kind':'license' if license_file else 'metadata'}))
             if not i.is_dir(): selected.append(i)
     # Abort rather than silently truncate or skip oversized selected material.
     if sum(i.file_size for i in selected)>32*1024**2 or any(i.file_size>2*1024**2 for i in selected):
         raise SystemExit('Selected metadata/license text exceeds bounded inspection budget')
-    versions=[]
+    versions=[]; undecoded=[]
+    selected.sort(key=lambda i: (not i.filename.endswith('.json'), i.filename))
     for i in selected:
         if stat.S_ISLNK(i.external_attr>>16):
             print('SYMLINK_METADATA_NOT_FOLLOWED '+json.dumps(i.filename)); continue
         b=a.read(i) # checks selected entry CRC; <=2 MiB each
         try: s=b.decode('utf-8-sig')
-        except UnicodeDecodeError: raise SystemExit('Non-UTF8 selected metadata requires separate inspection: '+repr(i.filename))
+        except UnicodeDecodeError:
+            if b.startswith((b'\xff\xfe', b'\xfe\xff')):
+                s=b.decode('utf-16')
+            else:
+                undecoded.append(i.filename)
+                print('UNDECODED '+json.dumps({'path':i.filename,'first_64_bytes_hex':b[:64].hex(),'sha256':hashlib.sha256(b).hexdigest()}))
+                continue
         # JSON escaping prevents terminal escapes and GitHub workflow-command injection.
         print('CONTENT '+json.dumps({'path':i.filename,'text':s},ensure_ascii=True))
         if i.filename.endswith('.json'):
@@ -83,5 +90,6 @@ with zipfile.ZipFile(z) as a:
                 record={k:obj[k] for k in ('name','version','apiVersion','releaseType','component','displayName','dependencies','devDependencies','engines') if k in obj}
                 if record: versions.append({'path':i.filename,'fields':record})
     print('VERSION_EVIDENCE '+json.dumps(versions,ensure_ascii=True))
+    print('UNDECODED_FILES '+json.dumps(undecoded))
     print('INSPECTION_ONLY: No SDK tools run, no licenses accepted. Embedded version metadata is evidence, not verified project compatibility. Only selected entry CRCs checked, not full archive integrity beyond published SHA256.')
 PY
