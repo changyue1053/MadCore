@@ -1,6 +1,7 @@
 """Check staged POM graph, not full Gradle metadata resolution, SBOM or licensing."""
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
@@ -27,8 +28,25 @@ def inspect(repository, manifest):
         if coord[2] != version:
             raise ValueError('Mismatched staged publication version')
         module_of(coord[1])
+        expected_dir = Path(repository) / group.replace('.', '/') / coord[1] / version
+        if path.parent != expected_dir:
+            raise ValueError('Publication is not at its canonical Maven repository path')
+        if path.name != coord[1] + '-' + version + '.pom':
+            prefix = version.removesuffix('SNAPSHOT')
+            pattern = re.escape(coord[1] + '-' + prefix) + r'[0-9]{8}\.[0-9]{6}-[0-9]+\.pom'
+            metadata = expected_dir / 'maven-metadata.xml'
+            if not version.endswith('-SNAPSHOT') or not re.fullmatch(pattern, path.name) or not metadata.is_file():
+                raise ValueError('Unresolvable publication filename/snapshot metadata')
+            snapshot = path.name[len(coord[1]) + 1:-4]
+            records = ET.parse(metadata).getroot().findall('./versioning/snapshotVersions/snapshotVersion')
+            if not any(n.findtext('extension') == 'pom' and n.findtext('value') == snapshot for n in records):
+                raise ValueError('Snapshot POM not indexed in Maven metadata')
         dependencies = []
         for dep in tree.findall('m:dependencies/m:dependency', ns):
+            if text(dep, 'scope') not in (None, 'compile', 'runtime') or text(dep, 'optional') not in (None, 'false'):
+                raise ValueError('Unsupported non-production or optional dependency edge')
+            if text(dep, 'classifier') or text(dep, 'type') not in (None, 'jar', 'aar', 'pom', 'klib'):
+                raise ValueError('Unsupported classified dependency edge')
             target = tuple(text(dep, k) for k in ('groupId', 'artifactId', 'version'))
             if not all(target):
                 raise ValueError('Unresolved dependency coordinate')
@@ -54,18 +72,21 @@ def inspect(repository, manifest):
         if any(target not in graph for target in targets):
             raise ValueError('Internal dependency missing from standalone staging repository')
     roots = [c for c in graph if module_of(c[1]) == manifest['umbrella']]
-    reached = set()
-    def visit(coord):
-        if coord in reached: return
-        reached.add(coord)
-        for dep in graph[coord]: visit(dep)
-    for root in roots: visit(root)
-    reached_modules = {module_of(c[1]) for c in reached}
     expected = set(manifest['production']) | {manifest['umbrella']}
-    if reached_modules != expected:
-        raise ValueError('Production umbrella closure missing modules or includes test-only modules')
+    closures = {}
+    for root in roots:
+        reached = set()
+        def visit(coord):
+            if coord in reached: return
+            reached.add(coord)
+            for dep in graph[coord]: visit(dep)
+        visit(root)
+        reached_modules = {module_of(c[1]) for c in reached}
+        if reached_modules != expected:
+            raise ValueError('Umbrella variant closure missing production or includes test-only modules: ' + root[1])
+        closures[':'.join(root)] = sorted(reached_modules)
     return {'scope': 'staged Maven POM graph only; not SBOM/license or Gradle-metadata certification',
-            'group': group, 'version': version, 'productionClosure': sorted(reached_modules),
+            'group': group, 'version': version, 'productionClosure': sorted(expected), 'variantClosures': closures,
             'optInTestOnly': manifest['optInTestOnly'], 'publicationCount': len(graph),
             'externalDependencies': [':'.join(c) for c in sorted(external)],
             'pomSha256': fingerprints}
