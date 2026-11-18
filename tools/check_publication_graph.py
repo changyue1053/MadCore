@@ -39,7 +39,7 @@ def inspect(repository, manifest):
                 raise ValueError('Unresolvable publication filename/snapshot metadata')
             snapshot = path.name[len(coord[1]) + 1:-4]
             records = ET.parse(metadata).getroot().findall('./versioning/snapshotVersions/snapshotVersion')
-            if not any(n.findtext('extension') == 'pom' and n.findtext('value') == snapshot for n in records):
+            if not any(n.findtext('extension') == 'pom' and not n.findtext('classifier') and n.findtext('value') == snapshot for n in records):
                 raise ValueError('Snapshot POM not indexed in Maven metadata')
         dependencies = []
         for dep in tree.findall('m:dependencies/m:dependency', ns):

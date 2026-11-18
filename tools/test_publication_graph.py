@@ -39,3 +39,22 @@ with tempfile.TemporaryDirectory() as temp:
     (root / 'test/core/base/1/base-1.pom').rename(root / 'misplaced.pom')
     rejected()
     print('Publication graph negative tests passed')
+
+with tempfile.TemporaryDirectory() as temp:
+    root = Path(temp)
+    snapshot_manifest = {'group': 'test.core', 'version': '1-SNAPSHOT', 'umbrella': 'sdk',
+                         'production': [], 'optInTestOnly': [], 'allowedExternal': []}
+    directory = root / 'test/core/sdk/1-SNAPSHOT'
+    directory.mkdir(parents=True)
+    (directory / 'sdk-1-20260101.000000-1.pom').write_text('<project xmlns="http://maven.apache.org/POM/4.0.0">'
+        '<groupId>test.core</groupId><artifactId>sdk</artifactId><version>1-SNAPSHOT</version></project>')
+    metadata = '<metadata><versioning><snapshotVersions><snapshotVersion><extension>pom</extension>{classifier}' \
+        '<value>1-20260101.000000-1</value></snapshotVersion></snapshotVersions></versioning></metadata>'
+    path = directory / 'maven-metadata.xml'
+    path.write_text(metadata.format(classifier='<classifier>sources</classifier>'))
+    try: inspect(root, snapshot_manifest)
+    except ValueError: pass
+    else: raise AssertionError('Classified metadata accepted for unclassified POM')
+    path.write_text(metadata.format(classifier=''))
+    assert inspect(root, snapshot_manifest)['publicationCount'] == 1
+    print('Snapshot classifier mismatch rejection passed')

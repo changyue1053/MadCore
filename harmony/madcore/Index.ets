@@ -11,3 +11,5 @@ export { RcpHttpClient } from './RcpHttpClient';
 export { RcpRequest, RcpLimits, RcpResponse, RcpFailure, RcpTransportException } from './HttpPolicy';
 
 export { NamespacedStringStore } from './NamespacedStorage';
+
+export { ResourceScope, ResourceRegistration, CloseReport, ScopeClosedException, FatalCleanupError, CloseableResource } from './ResourceScope';

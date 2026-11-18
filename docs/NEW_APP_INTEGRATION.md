@@ -90,3 +90,19 @@ It is a development integrity check, not a published release, complete SBOM,
 Gradle Module Metadata certification or licensing approval. Artifact-only consumer
 builds remain necessary and are run separately. iOS/Harmony packaging keeps its
 separate framework/HAR validation; this POM check does not replace it.
+
+## Own cleanup explicitly in every app
+
+Kotlin and ArkTS ResourceScope accept host-provided synchronous CloseableResource
+objects. Registrations transfer cleanup ownership; detach returns that ownership
+without closing. Close first marks the scope closed and detaches all entries,
+then attempts LIFO cleanup. Duplicate registrations mean duplicate closes. A
+rejected registration remains caller-owned. There is no automatic app lifecycle,
+thread dispatch or asynchronous cancellation.
+
+Hosts must serialize calls. Cleanup must not block indefinitely. Reports contain
+only attempted/failed counts. Kotlin rethrows non-Exception Throwable after the
+batch; ArkTS has no equivalent taxonomy and instead recognizes the explicit
+FatalCleanupError marker. Ordinary ArkTS thrown values are counted/isolated. This
+is a language difference, not a claim of identical runtime exception behavior.
+The ArkTS facade does not retain Kotlin/native objects or bridge callbacks.

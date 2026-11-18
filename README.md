@@ -169,3 +169,5 @@ Kotlin 与 Harmony ArkTS 提供同规则的 `NamespacedStringStore`，包装宿�
 `core-testkit` 增加可注入的 `ScriptedHttpTransport`：预置FIFO响应或脱敏失败，支持剩余脚本断言与调用计数，方便各新App无需真实后端测试业务成功/失败路径。该工具不保存请求、不开网络、不隐式重试，需单线程使用；它不是TLS/网络模拟器，也不进入默认生产umbrella。
 
 开发交付清单见 `SDK-MODULES.json`。JVM/Android CI校验实际staging POM依赖闭包，防止测试工具误入生产umbrella、模块遗漏、内部版本漂移或未审核的运行依赖；生成POM哈希报告。该检查不是完整SBOM、许可证结论或正式发布，仍保留仓外消费者和三端独立打包验证。
+
+Harmony ArkTS增加纯逻辑 `ResourceScope`，与Kotlin保持显式所有权、detach、逆序清理、重入/重复关闭及关闭后拒绝注册的规则一致。异常分类需明确区别：Kotlin区分Exception与其他Throwable，ArkTS仅把显式FatalCleanupError视为批次清理后重新抛出的严重错误。没有自动生命周期接管/线程调度/异步取消，也不是跨Kotlin对象桥；真实设备运行仍待验证。
