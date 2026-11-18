@@ -75,3 +75,18 @@ The double retains no requests/URLs/headers, opens no sockets and performs no
 sleep/retry. It is owner-thread only. callCount counts consumed outcomes, not
 requests rejected by preflight. It does not verify route matching, TLS, OS
 cancellation or asynchronous timing. Use separate integration tests for those.
+
+## Check the development delivery graph
+
+`SDK-MODULES.json` records the eight production components, the umbrella and the
+opt-in testkit. JVM/Android publication jobs check the actual staged Maven POMs:
+internal coordinates must resolve within staging at the declared version,
+external runtime coordinates must be allowlisted, and no testkit dependency may
+enter the production umbrella closure. Empty/missing publication sets fail.
+
+The build generates `build/validation/publication-graph.json` with the observed
+closure and POM SHA-256 values. This report contains no binaries or signing keys.
+It is a development integrity check, not a published release, complete SBOM,
+Gradle Module Metadata certification or licensing approval. Artifact-only consumer
+builds remain necessary and are run separately. iOS/Harmony packaging keeps its
+separate framework/HAR validation; this POM check does not replace it.

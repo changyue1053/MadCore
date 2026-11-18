@@ -21,6 +21,7 @@ jobs:
       - run: python3 tools/test_http_fixture.py
       - run: python3 tools/test_tls_fixture.py
       - run: python3 tools/test_jvm_classpath.py
+      - run: python3 tools/test_publication_graph.py
       - name: Test native bridge memory/error paths with host stubs (not device execution)
         run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)
@@ -31,6 +32,7 @@ jobs:
           node --experimental-transform-types tools/test_harmony_storage.mjs
           node --experimental-transform-types tools/test_harmony_namespaced_storage.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
+      - run: python3 tools/check_publication_graph.py build/staging-repository
       - name: Consume only published artifacts from outside the checkout
         shell: bash
         run: |
@@ -50,6 +52,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
+      - run: python3 tools/check_publication_graph.py build/staging-repository
       - name: Verify release AARs exist
         run: |
           for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
