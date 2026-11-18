@@ -5,6 +5,10 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val request = com.mad.core.net.HttpRequest("https://example.invalid")
+    check(request.method == com.mad.core.net.HttpMethod.GET)
+    val transport: com.mad.core.net.HttpTransport = com.mad.core.net.UrlConnectionTransport()
+    check(transport is com.mad.core.net.UrlConnectionTransport)
     val config = com.mad.core.config.ConfigSnapshot(mapOf("timeout" to "10"))
         .overlay(com.mad.core.config.ConfigSnapshot(mapOf("timeout" to "20")))
     check(config.longValue("timeout") == 20L)

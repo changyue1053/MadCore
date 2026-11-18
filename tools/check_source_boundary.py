@@ -14,10 +14,15 @@ for entry in manifest['files']:
     digest = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
     if digest != entry['git_blob']:
         errors.append('source changed: ' + entry['destination'])
-allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.')
+allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.')
 for path in ROOT.glob('core-*/src/**/*.kt'):
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
-        if not dependency.startswith(allowed):
+        platform_allowed = ()
+        if 'core-net/src/jvmAndAndroidMain/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('java.io.', 'java.net.')
+        if 'core-net/src/jvmTest/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('java.net.', 'java.util.concurrent.', 'com.sun.net.httpserver.')
+        if not dependency.startswith(allowed + platform_allowed):
             errors.append(f'unexpected import: {path.relative_to(ROOT)}: {dependency}')
 for path in list(ROOT.glob('*.gradle')) + list(ROOT.glob('*/build.gradle')):
     if re.search(r'includeBuild\s*\(|projectDir\s*=|mad-repo|capability-|imcore|compose', path.read_text()):

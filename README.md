@@ -13,7 +13,8 @@
 | core-json | MiniJson 解析 | Kotlin 标准库 |
 | core-logging | 结构化日志、级别过滤、敏感记录默认丢弃 | core-time |
 | core-config | 不可变配置、分层覆盖、严格类型读取 | Kotlin 标准库 |
-| madcore | 统一消费入口、iOS umbrella 配置 | 上述五个模块 |
+| core-net | HTTP 契约、限额、JVM/Android URLConnection 适配 | Kotlin 标准库 / 平台网络库 |
+| madcore | 统一消费入口、iOS umbrella 配置 | 上述六个模块 |
 
 原 Kotlin 源码及测试保持不变，包名保留 `com.mad.core.*`。来源固定在 `SOURCE-PROVENANCE.json`，没有修改源仓库。新构建不依赖原仓库的 build-logic、产品装配或本地绝对路径。
 
@@ -72,3 +73,9 @@ GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `exa
 ## 本地配置模型（开发分支）
 
 `ConfigSnapshot` 防御性复制输入，叠加产生新快照，可供多个读者共享。缺失值返回 null，存在但不合法的类型值抛 `ConfigValueException`，不将错误配置静默当成缺失。异常与 `toString` 不输出配置值。快照只存字符串，不是安全凭据容器；不包含账号、产品/BOM、签名协议、远程拉取或持久化。此模块独立实现，不复制原仓带业务协议的完整 `core-config`。
+
+## 网络基础（开发分支）
+
+`HttpClient` + `HttpTransport` 为阻塞接口，宿主必须放到非 UI 线程。`UrlConnectionTransport` 仅在 JVM/Android 提供，支持 GET/POST，默认只允许 HTTPS、不自动跟随重定向、不加应用层重试。请求/响应体限额在 JVM/Android 适配器中执行；连接和读取超时是 socket 超时，不是包含 DNS/写入的全程 deadline，不提供取消。平台代理、CookieHandler、Authenticator 等全局网络钩子仍可能生效；不是 SSRF 防火墙。Android App 须自行声明 INTERNET 权限。
+
+响应非 2xx 仍返回状态/响应体；网络异常仅返回枚举错误，不附带 URL、头或正文。请求禁止 URL 内凭据、片段、换行头及传输层所有的头。TLS 校验采用平台默认，不关闭证书或主机名校验。测试仅显式给本机回环 HTTP 开绿灯。iOS/鸿蒙目前只有公共网络契约，须注入宿主适配器，不宣称已有原生 HTTP 实现。

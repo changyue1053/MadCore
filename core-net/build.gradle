@@ -1,0 +1,8 @@
+kotlin {
+    sourceSets {
+        jvmMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+        if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
+            androidMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+        }
+    }
+}
