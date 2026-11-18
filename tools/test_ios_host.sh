@@ -32,8 +32,10 @@ bundle=pathlib.Path(sys.argv[1])
     'CFBundlePackageType':'BNDL',
     'CFBundleVersion':'1'
 }))
-assert plistlib.loads((bundle/'PrivacyInfo.xcprivacy').read_bytes())['NSPrivacyAccessedAPITypes']
+if not plistlib.loads((bundle/'PrivacyInfo.xcprivacy').read_bytes()).get('NSPrivacyAccessedAPITypes'):
+    raise SystemExit('Missing privacy declarations')
 PY
+echo "Independent host compilation $(date -u +%FT%TZ)"
 xcrun --sdk iphonesimulator swiftc -parse-as-library "$work/App.swift" \
   -target arm64-apple-ios15.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
@@ -41,15 +43,7 @@ xcrun --sdk iphonesimulator swiftc -parse-as-library "$work/App.swift" \
   -Xlinker -ObjC -lc++ -o "$app/MadCoreHost"
 # Test-only ad-hoc simulator signature, never a distribution identity.
 codesign --force --sign - "$app"
+echo "Independent host installation $(date -u +%FT%TZ)"
 xcrun simctl install "$MADCORE_IOS_SIMULATOR_UDID" "$app"
-python3 - "$MADCORE_IOS_SIMULATOR_UDID" <<'PY'
-import subprocess,sys
-result=subprocess.run(['xcrun','simctl','launch','--console','--terminate-running-process',
-                       sys.argv[1],'com.mad.consumer.smoke'],
-                      stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=120)
-print(result.stdout)
-assert result.returncode == 0, 'Independent host process failed'
-assert result.stdout.splitlines().count('MADCORE_EXTERNAL_IOS_HOST_PASS') == 1, 'Missing or duplicate success marker'
-assert 'MADCORE_EXTERNAL_IOS_HOST_FAIL' not in result.stdout, 'Independent host reported failure'
-print('Independent artifact-only iOS host executed successfully')
-PY
+echo "Independent host launch $(date -u +%FT%TZ)"
+python3 "$root/tools/run_ios_host.py" "$MADCORE_IOS_SIMULATOR_UDID" "${RUNNER_TEMP:-/tmp}/madcore-ios-host.log"

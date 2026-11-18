@@ -20,6 +20,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        print("MADCORE_HOST_STAGE_APP_LAUNCH")
+        fflush(stdout)
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController()
         window.makeKeyAndVisible()
@@ -43,6 +45,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 private func runHostChecks() throws {
+        print("MADCORE_HOST_STAGE_CHECKS")
+        fflush(stdout)
         try check(!Thread.isMainThread)
         let scope = ResourceScope()
         var closeCount = 0
@@ -73,6 +77,8 @@ private func runHostChecks() throws {
         try store.remove(key: "theme")
         try check(try reopened.get(key: "theme") == nil)
 
+        print("MADCORE_HOST_STAGE_HTTP")
+        fflush(stdout)
         let transport = try IosUrlSessionTransport(callTimeoutMillis: 3000)
         let limits = try HttpLimits(connectTimeoutMillis: 3000, readTimeoutMillis: 3000,
                                     maxResponseBytes: 1024, maxRequestBytes: 1024,

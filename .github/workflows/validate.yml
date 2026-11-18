@@ -23,6 +23,7 @@ jobs:
       - run: python3 tools/test_jvm_classpath.py
       - run: python3 tools/test_publication_graph.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
+      - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
       - name: Test native bridge memory/error paths with host stubs (not device execution)
         run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)
@@ -96,6 +97,16 @@ jobs:
           consumer=$(mktemp -d)
           cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
+      - name: Link native behavior tests before simulator startup
+        run: ./gradlew --no-daemon -Pmadcore.target=ios :core-net:linkDebugTestIosSimulatorArm64 :core-storage:linkDebugTestIosSimulatorArm64 :core-lifecycle:linkDebugTestIosSimulatorArm64
+      - name: Boot iOS simulator (separate bounded infrastructure stage)
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          export MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
+          echo "MADCORE_IOS_SIMULATOR_UDID=$MADCORE_IOS_SIMULATOR_UDID" >> "$GITHUB_ENV"
       - name: Run native and independent iOS host behavior tests
         timeout-minutes: 15
         shell: bash
@@ -103,9 +114,6 @@ jobs:
           python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT
-          export MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
-          xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID" || true
-          xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
           curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test :core-lifecycle:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py

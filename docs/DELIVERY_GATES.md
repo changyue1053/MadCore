@@ -40,3 +40,14 @@ negative scenarios remain coverage limits, not silently passed checks. See
 PUBLIC_API_STATUS.md and CROSS_RUNTIME_BRIDGE.md. They should be prioritized by
 new apps' actual minimum platforms and integration needs rather than invented
 feature parity with a previous application.
+
+## iOS runner diagnostics
+
+Native test binaries are linked before simulator startup. Boot has its own bounded
+10-minute infrastructure step; behavior retains its 15-minute limit and UIKit
+host launch retains its 120-second limit. The overall job remains 35 minutes.
+Host launch output is saved in the runner temporary directory and printed on
+success, failure and timeout, including fixed non-sensitive app/check/HTTP stage
+markers. A timeout fails even if a success marker was printed before hanging.
+This improves diagnosis, not the platform coverage claim; CI logs retain emitted
+failure evidence, while the temporary file itself is not a downloadable artifact.
