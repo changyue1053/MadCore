@@ -85,3 +85,9 @@ GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `exa
 `IosUrlSessionTransport` 使用每次调用独立的 ephemeral NSURLSession；拒绝主线程调用，关闭 cookie/凭据存储/缓存，保留平台 TLS 校验。流式检查响应限额、不跟随重定向，超时会取消底层请求。Foundation 只有单个空闲超时，取连接/读取限额中的较小值，另有 `callTimeoutMillis` 总等待上限。公开接口仍是阻塞式，不提供调用方主动取消。系统代理、ATS 及其他宿主网络策略仍适用。
 
 CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、错误响应、重定向拒绝、固定/分块响应限额、超时及之后的新请求。测试配置存在不等于测试通过；`cc69dec` 的模拟器测试任务已通过（运行 https://github.com/changyue1053/MadCore/actions/runs/44246999178）；后续还增加 JUnit 用例非空/未跳过检查。以上平台状态为已确认结果。没有真机、真实公网 TLS 或宿主 App 集成结果。
+
+## 鸿蒙 C/NAPI 边界预览（开发中）
+
+`madcore` 增加 ohosArm64 shared library 目标，C ABI v1 仅暴露版本、墙钟毫秒及有 64 KiB 上限的 JSON 对象校验。`harmony/native` 为独立 NAPI 桥源码，直接链接 `libmadcore.so`，不含产品装配、Compose、IM 或动态产品加载。此阶段不是完整 Core 的 ArkTS 映射。C 指针调用方必须提供有效、可读的长度范围；不跨 ABI 持有 Kotlin 对象。
+
+当前 shared library 链接及符号检查待 CI 验证；NAPI 编译、HAR 打包、ArkTS 消费和真机运行尚未通过，不能把源码目录称作可发布 HAR。工具链/SDK 仅用于构建，不随仓库分发。

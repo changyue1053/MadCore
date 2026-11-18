@@ -91,4 +91,15 @@ jobs:
       - name: Check pinned fork marker is reachable (no credentials)
         run: curl --fail --location --connect-timeout 20 --max-time 60 --output /dev/null 'https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlin/multiplatform/org.jetbrains.kotlin.multiplatform.gradle.plugin/2.2.21-1.0.0/org.jetbrains.kotlin.multiplatform.gradle.plugin-2.2.21-1.0.0.pom'
       - name: Probe fork toolchain and compile only (not HAR or device support)
-        run: ./gradlew --no-daemon -Pmadcore.target=ohos compileKotlinOhosArm64
+        run: ./gradlew --no-daemon -Pmadcore.target=ohos compileKotlinOhosArm64 :madcore:linkReleaseSharedOhosArm64
+      - name: Verify independent C ABI library (not device execution)
+        shell: bash
+        run: |
+          so=madcore/build/bin/ohosArm64/releaseShared/libmadcore.so
+          test -s "$so"
+          readelf -h "$so" | grep AArch64
+          for symbol in madcore_abi_version madcore_epoch_millis madcore_json_object_valid; do
+            readelf --dyn-syms --wide "$so" | grep -w "$symbol"
+          done
+          echo 'Inspect available NAPI build prerequisites for next stage'
+          find "$HOME/.konan/dependencies" -name native_api.h -o -name libace_napi.z.so -o -name clang++

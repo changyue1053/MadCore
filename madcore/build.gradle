@@ -27,4 +27,10 @@ kotlin {
             }
         }
     }
+    if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos') {
+        targets.getByName('ohosArm64').binaries.sharedLib {
+            baseName = 'madcore'
+        }
+    }
+
 }

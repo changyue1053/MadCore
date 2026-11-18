@@ -15,9 +15,11 @@ for entry in manifest['files']:
     if digest != entry['git_blob']:
         errors.append('source changed: ' + entry['destination'])
 allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.')
-for path in ROOT.glob('core-*/src/**/*.kt'):
+for path in list(ROOT.glob('core-*/src/**/*.kt')) + list(ROOT.glob('madcore/src/**/*.kt')):
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
         platform_allowed = ()
+        if 'madcore/src/ohosArm64Main/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('kotlinx.cinterop.',)
         if 'core-net/src/jvmAndAndroidMain/' in str(path.relative_to(ROOT)):
             platform_allowed = ('java.io.', 'java.net.')
         if 'core-net/src/jvmTest/' in str(path.relative_to(ROOT)):
