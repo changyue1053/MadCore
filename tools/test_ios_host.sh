@@ -4,7 +4,15 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 : "${MADCORE_IOS_SIMULATOR_UDID:?Boot a simulator and set its UDID}"
 work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/madcore-ios-host.XXXXXXXX")
 cleanup() {
-  xcrun simctl uninstall "$MADCORE_IOS_SIMULATOR_UDID" com.mad.consumer.smoke >/dev/null 2>&1 || true
+  python3 - "$MADCORE_IOS_SIMULATOR_UDID" <<'CLEANUP' || true
+import subprocess,sys
+for action in ('terminate', 'uninstall'):
+    try:
+        subprocess.run(['xcrun','simctl',action,sys.argv[1],'com.mad.consumer.smoke'],
+                       stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+CLEANUP
   rm -rf -- "$work"
 }
 trap cleanup EXIT
@@ -41,7 +49,7 @@ result=subprocess.run(['xcrun','simctl','launch','--console','--terminate-runnin
                       stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=120)
 print(result.stdout)
 assert result.returncode == 0, 'Independent host process failed'
-assert result.stdout.count('MADCORE_EXTERNAL_IOS_HOST_PASS') == 1, 'Missing or duplicate success marker'
+assert result.stdout.splitlines().count('MADCORE_EXTERNAL_IOS_HOST_PASS') == 1, 'Missing or duplicate success marker'
 assert 'MADCORE_EXTERNAL_IOS_HOST_FAIL' not in result.stdout, 'Independent host reported failure'
 print('Independent artifact-only iOS host executed successfully')
 PY

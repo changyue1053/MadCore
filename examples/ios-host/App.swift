@@ -60,6 +60,11 @@ private func runHostChecks() throws {
                                   headers: [:], body: KotlinByteArray(size: 0))
         let response = try client.execute(request: get)
         try check(response.status == 200 && response.bodySize == 5)
+        let expected = Array("hello".utf8)
+        let received = response.body
+        for index in 0..<expected.count {
+            try check(received.get(index: Int32(index)) == Int8(expected[index]))
+        }
         let redirect = try HttpRequest(url: "http://127.0.0.1:18082/redirect", method: HttpMethod.get,
                                        headers: [:], body: KotlinByteArray(size: 0))
         try check(try client.execute(request: redirect).status == 302)
