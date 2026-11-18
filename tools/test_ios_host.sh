@@ -35,10 +35,25 @@ bundle=pathlib.Path(sys.argv[1])
 if not plistlib.loads((bundle/'PrivacyInfo.xcprivacy').read_bytes()).get('NSPrivacyAccessedAPITypes'):
     raise SystemExit('Missing privacy declarations')
 PY
+# Compile two separate upper-SDK static archives, then consume only their
+# archives/module interfaces and one shared MadCore framework in the host.
+upper="$work/upper-artifacts"
+mkdir -p "$upper"
+for module in FeatureAlpha FeatureBeta; do
+  cp "$root/examples/ios-upper-sdks/$module.swift" "$work/$module.swift"
+  xcrun --sdk iphonesimulator swiftc -parse-as-library -emit-library -static -emit-module \
+    -module-name "$module" "$work/$module.swift" \
+    -emit-module-path "$upper/$module.swiftmodule" \
+    -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+    -F "$framework" -o "$upper/lib$module.a"
+  test -s "$upper/lib$module.a"
+  rm "$work/$module.swift"
+done
 echo "Independent host compilation $(date -u +%FT%TZ)"
 xcrun --sdk iphonesimulator swiftc -parse-as-library "$work/App.swift" \
   -target arm64-apple-ios15.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+  -I "$upper" -L "$upper" -lFeatureAlpha -lFeatureBeta \
   -F "$framework" -framework MadCore -framework Foundation -framework UIKit \
   -Xlinker -ObjC -lc++ -o "$app/MadCoreHost"
 # Test-only ad-hoc simulator signature, never a distribution identity.

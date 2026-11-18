@@ -5,6 +5,15 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val shared = example.alpha.UpperAlpha.createStore()
+    check(example.beta.UpperBeta.useStore(shared) === shared)
+    check(shared.get("upper.beta") == "shared")
+    check(example.alpha.UpperAlpha.coreType() === example.beta.UpperBeta.coreType())
+    check(example.alpha.UpperAlpha.coreType() === com.mad.core.storage.StringStore::class.java)
+    val alphaSource = example.alpha.UpperAlpha::class.java.protectionDomain.codeSource.location
+    val betaSource = example.beta.UpperBeta::class.java.protectionDomain.codeSource.location
+    check(alphaSource != betaSource && alphaSource.path.endsWith(".jar") && betaSource.path.endsWith(".jar"))
+    println("Two independent upper SDK JARs exchange one identical Core instance/type")
     val scripted = com.mad.core.testkit.ScriptedHttpTransport()
     scripted.enqueueResponse(com.mad.core.net.HttpResponse(200, emptyMap(), "fixture".encodeToByteArray()))
     val fakeClient = com.mad.core.net.HttpClient(scripted)

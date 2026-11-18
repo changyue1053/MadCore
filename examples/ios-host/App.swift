@@ -2,6 +2,8 @@ import UIKit
 import Foundation
 import Darwin
 import MadCore
+import FeatureAlpha
+import FeatureBeta
 
 final class HostResource: NSObject, CloseableResource {
     private let action: () throws -> Void
@@ -67,6 +69,11 @@ private func runHostChecks() throws {
         try check(!MadCoreInfo.shared.version.isEmpty)
         let config = try ConfigSnapshot(values: ["count": "7"])
         try check(try config.longValue(key: "count")?.int64Value == 7)
+        let fromBeta = featureBetaIdentity(config)
+        try check(fromBeta === config)
+        try check(try featureAlphaRead(fromBeta) == 7)
+        print("MADCORE_SHARED_UPPER_SDKS_PASS")
+        fflush(stdout)
 
         let defaults = UserDefaults(suiteName: "com.mad.consumer.smoke.preferences")!
         let store = UserDefaultsStringStore(defaults: defaults)

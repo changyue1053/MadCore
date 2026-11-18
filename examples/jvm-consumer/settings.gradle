@@ -1,2 +1,3 @@
 pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
 rootProject.name = 'madcore-external-consumer'
+include 'upper-alpha', 'upper-beta'

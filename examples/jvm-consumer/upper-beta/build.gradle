@@ -1,0 +1,12 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'java-library'
+}
+repositories {
+    maven { url = uri(providers.gradleProperty('madcoreRepository').get()) }
+    mavenCentral()
+}
+kotlin { jvmToolchain(21) }
+dependencies {
+    api 'com.mad.core:madcore:0.1.0-SNAPSHOT'
+}
