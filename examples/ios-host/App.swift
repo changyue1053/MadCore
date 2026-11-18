@@ -3,6 +3,12 @@ import Foundation
 import Darwin
 import MadCore
 
+final class HostResource: NSObject, CloseableResource {
+    private let action: () throws -> Void
+    init(action: @escaping () throws -> Void) { self.action = action }
+    func close() throws { try action() }
+}
+
 enum CheckFailure: Error { case failed }
 func check(_ condition: Bool) throws {
     if !condition { throw CheckFailure.failed }
@@ -38,6 +44,22 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
 private func runHostChecks() throws {
         try check(!Thread.isMainThread)
+        let scope = ResourceScope()
+        var closeCount = 0
+        let resource = HostResource { closeCount += 1 }
+        _ = try scope.register(resource: resource)
+        try check(try scope.close().attempted == 1)
+        try check(scope.isClosed && closeCount == 1)
+        try check(try scope.close().attempted == 0)
+        let failureScope = ResourceScope()
+        var cleanupCount = 0
+        _ = try failureScope.register(resource: HostResource { cleanupCount += 1 })
+        _ = try failureScope.register(resource: HostResource { throw CheckFailure.failed })
+        _ = try failureScope.register(resource: HostResource { cleanupCount += 1 })
+        let failureReport = try failureScope.close()
+        try check(failureReport.failed == 1 && failureReport.attempted == 3 && cleanupCount == 2)
+        try check(try failureScope.close().attempted == 0)
+
         try check(!MadCoreInfo.shared.version.isEmpty)
         let config = try ConfigSnapshot(values: ["count": "7"])
         try check(try config.longValue(key: "count")?.int64Value == 7)

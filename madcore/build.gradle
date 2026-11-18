@@ -10,6 +10,7 @@ kotlin {
             api project(':core-config')
             api project(':core-net')
             api project(':core-storage')
+            api project(':core-lifecycle')
         }
     }
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
@@ -25,6 +26,7 @@ kotlin {
                 export project(':core-config')
                 export project(':core-net')
                 export project(':core-storage')
+                export project(':core-lifecycle')
                 framework.add(it)
             }
         }

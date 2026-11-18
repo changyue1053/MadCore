@@ -5,6 +5,11 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    var closed = false
+    val scope = com.mad.core.lifecycle.ResourceScope()
+    scope.register { closed = true }
+    check(scope.close().attempted == 1 && closed)
+
     val store = com.mad.core.storage.MemoryStringStore()
     store.put("theme", "dark")
     check(store.get("theme") == "dark")

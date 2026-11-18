@@ -14,7 +14,7 @@ for entry in manifest['files']:
     digest = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
     if digest != entry['git_blob']:
         errors.append('source changed: ' + entry['destination'])
-allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.', 'com.mad.core.storage.')
+allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.', 'com.mad.core.logging.', 'com.mad.core.config.', 'com.mad.core.net.', 'com.mad.core.storage.', 'com.mad.core.lifecycle.')
 for path in list(ROOT.glob('core-*/src/**/*.kt')) + list(ROOT.glob('madcore/src/**/*.kt')):
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
         platform_allowed = ()

@@ -39,7 +39,7 @@ jobs:
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
       - name: Verify release AARs exist
         run: |
-          for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage madcore; do
+          for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
             test -s "$module/build/outputs/aar/$module-release.aar"
           done
       - name: Test an independent Android app on a managed emulator
@@ -89,9 +89,10 @@ jobs:
           xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
           curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
-          ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test
+          ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test :core-lifecycle:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
           python3 tools/check_ios_storage_results.py
+          python3 tools/check_ios_lifecycle_results.py
           bash tools/test_ios_host.sh
   harmony-native-har:
     runs-on: ubuntu-24.04
