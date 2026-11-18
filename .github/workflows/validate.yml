@@ -77,9 +77,9 @@ jobs:
           curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
-  harmony-klib-probe:
+  harmony-native-har:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -107,3 +107,6 @@ jobs:
           find "$HOME/.konan/dependencies" -name native_api.h -o -name libace_napi.z.so -o -name clang++
       - name: Compile standalone NAPI bridge against pinned sysroot
         run: bash tools/build_harmony_napi.sh
+      - name: Build HAR and separate ArkTS consumer with authorized official CLI
+        timeout-minutes: 20
+        run: bash tools/build_harmony_har.sh

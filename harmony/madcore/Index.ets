@@ -1,0 +1,7 @@
+import nativeCore from 'libmadcore_napi.so';
+/** Primitive-only initial facade. Native implementation owns no ArkTS/Kotlin objects across calls. */
+export class MadCore {
+  static abiVersion(): number { return nativeCore.abiVersion(); }
+  static epochMillis(): number { return nativeCore.epochMillis(); }
+  static isJsonObject(input: string): boolean { return nativeCore.isJsonObject(input); }
+}
