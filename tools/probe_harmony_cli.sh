@@ -3,8 +3,8 @@
 set -euo pipefail
 umask 077
 export LC_ALL=C
-BASE='https://repo.huaweicloud.com/harmonyos/ohpm/5.0.3'
-NAME='commandline-tools-linux-x64-5.0.3.906.zip'
+BASE='https://repo.huaweicloud.com/harmonyos/ohpm/5.1.0'
+NAME='commandline-tools-linux-x64-5.1.0.840.zip'
 WORK="$(mktemp -d "${RUNNER_TEMP:-/tmp}/harmony-inspect.XXXXXXXX")"
 trap 'rm -rf -- "$WORK"' EXIT
 export WORK NAME

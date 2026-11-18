@@ -9,7 +9,12 @@ lib="$root/madcore/build/bin/ohosArm64/releaseShared"
 test -s "$lib/libmadcore.so"
 test -s "$sysroot/usr/include/napi/native_api.h"
 # No fake main stub: inspect the compiler's startup-object choice before claiming loadability.
-readelf --dyn-syms --wide "$lib/libmadcore.so" | awk '$7 == "UND" {print $8}' | sort -u
+undefined=$(readelf --dyn-syms --wide "$lib/libmadcore.so" | awk '$7 == "UND" {print $8}' | sort -u)
+printf '%s\n' "$undefined"
+if grep -qx main <<< "$undefined"; then
+  echo 'Invalid shared library: executable startup main is unresolved'
+  exit 1
+fi
 readelf -d "$lib/libmadcore.so" | grep -E 'NEEDED|SONAME'
 grep -nE 'crtFiles|linkerDynamicFlags|ohos_arm64.*=' "$HOME/.konan/kotlin-native-prebuilt-linux-x86_64-2.2.21-1.0.0/konan/konan.properties" | tail -80
 "$llvm/bin/clang" --target=aarch64-linux-ohos --sysroot="$sysroot" \

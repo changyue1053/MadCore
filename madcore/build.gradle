@@ -30,6 +30,11 @@ kotlin {
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos') {
         targets.getByName('ohosArm64').binaries.sharedLib {
             baseName = 'madcore'
+            // Hide compiler runtime/C adapter internals and discard executable startup roots.
+            // A shared SDK must not retain Scrt1.o's unresolved `main` dependency.
+            def exportsMap = rootProject.file('harmony/native/madcore.exports.map')
+            linkerOpts('--version-script=' + exportsMap.absolutePath, '--no-undefined')
+            linkTaskProvider.configure { inputs.file(exportsMap) }
         }
     }
 
