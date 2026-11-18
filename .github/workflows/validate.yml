@@ -65,6 +65,7 @@ jobs:
           cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
       - name: Run actual iOS Simulator HTTP tests
+        timeout-minutes: 15
         shell: bash
         run: |
           python3 tools/http_fixture.py > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
