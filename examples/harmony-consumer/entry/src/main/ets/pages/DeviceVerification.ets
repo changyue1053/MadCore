@@ -24,7 +24,7 @@ function origin(value: string, scheme: string): string {
   requireCheck(match[1] === scheme && [a, b, c, d].every((v: number) => v >= 0 && v <= 255) &&
     port >= 1 && port <= 65535 && (a === 127 || a === 10 || (a === 192 && b === 168) ||
     (a === 172 && b >= 16 && b <= 31)), 'controlled private fixture required');
-  return value;
+  return scheme + '://' + a.toString() + '.' + b.toString() + '.' + c.toString() + '.' + d.toString() + ':' + port.toString();
 }
 async function failure(client: RcpHttpClient, request: RcpRequest, limits: RcpLimits,
   expected: RcpFailure): Promise<void> {
@@ -57,7 +57,7 @@ export async function verifyNetwork(httpOrigin: string, tlsOrigin: string): Prom
     const before = Number(ascii(await request('/tls-attempts')));
     requireCheck(Number.isInteger(before) && before >= 0, 'TLS counter');
     requireCheck(ascii(await request('/tls-count')) === '0', 'TLS HTTP count initially zero');
-    await failure(client, new RcpRequest(tls + '/probe'), new RcpLimits(3000, 3000, 5000), RcpFailure.Io);
+    await failure(client, new RcpRequest(tls + '/tls-probe'), new RcpLimits(3000, 3000, 5000), RcpFailure.Io);
     const after = Number(ascii(await request('/tls-attempts')));
     requireCheck(Number.isInteger(after) && after > before, 'TLS connection actually attempted');
     requireCheck(ascii(await request('/tls-count')) === '0', 'untrusted TLS never reached HTTP');
@@ -77,12 +77,12 @@ export async function verifyStorage(context: common.Context, token: string, prep
     const key = 'run-' + token;
     if (prepare) {
       requireCheck(store.get(key) === null, 'use a fresh token');
+      preparedInThisProcess = true; // Retain even if mutation/flush fails: no same-process restart claim.
       store.put(key, 'initial');
       requireCheck(store.get(key) === 'initial', 'create/read');
       store.put(key, 'restart-中文-🙂');
       requireCheck(store.get(key) === 'restart-中文-🙂', 'update');
       await storage.flush();
-      preparedInThisProcess = true;
     } else {
       requireCheck(store.get(key) === 'restart-中文-🙂', 'persisted value after process restart');
       store.remove(key);
