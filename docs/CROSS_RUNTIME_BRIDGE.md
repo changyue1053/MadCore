@@ -40,3 +40,11 @@ not a supported bridge API.
 
 No unreviewed new toolchain/image license or signing material belongs in this
 repository. Missing device evidence remains a release blocker.
+
+## Experimental contract evidence
+
+`harmony/experimental/async-contract` now contains a fixed-capacity owner-thread
+operation registry with host ASan/UBSan tests. It establishes only token ownership
+and terminal-state behavior under serialized event orderings. It is excluded from
+production exports and HAR. No NAPI references, Kotlin handles, async callback
+queue or cross-runtime request path is implemented by this experiment.
