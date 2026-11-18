@@ -62,7 +62,7 @@ jobs:
           test -s "$xc/ios-arm64/MadCore.framework/MadCore"
           test -s "$xc/ios-arm64-simulator/MadCore.framework/MadCore"
           consumer=$(mktemp -d)
-          printf 'import MadCore\nlet version: String = MadCoreInfo.shared.version\n' > "$consumer/Consumer.swift"
+          cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
   harmony-klib-probe:
     runs-on: ubuntu-latest

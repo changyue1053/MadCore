@@ -13,7 +13,7 @@ class ConfigValueException(val key: String, val expectedType: String) :
  * so invalid configuration is not silently mistaken for a missing value. Values are not trimmed.
  * Do not put secrets in source control. This class does not encrypt or securely erase strings.
  */
-class ConfigSnapshot(values: Map<String, String>) {
+class ConfigSnapshot @Throws(IllegalArgumentException::class) constructor(values: Map<String, String>) {
     private val values: Map<String, String> = values.toMap().also { copy ->
         require(copy.keys.all { isKey(it) }) { "Configuration keys must be lowercase ASCII identifiers (1..128 characters)" }
     }
@@ -24,6 +24,7 @@ class ConfigSnapshot(values: Map<String, String>) {
     fun stringValue(key: String): String? = values[key]
 
     /** Only literal "true" and "false" are accepted. */
+    @Throws(ConfigValueException::class)
     fun booleanValue(key: String): Boolean? = values[key]?.let {
         when (it) {
             "true" -> true
@@ -33,12 +34,14 @@ class ConfigSnapshot(values: Map<String, String>) {
     }
 
     /** Decimal integer within the signed 64-bit range; no trimming or fractional coercion. */
+    @Throws(ConfigValueException::class)
     fun longValue(key: String): Long? = values[key]?.let {
         if (!LONG_PATTERN.matches(it)) throw ConfigValueException(key, "long")
         it.toLongOrNull() ?: throw ConfigValueException(key, "long")
     }
 
     /** Finite double only: NaN and infinities are invalid configuration. */
+    @Throws(ConfigValueException::class)
     fun doubleValue(key: String): Double? = values[key]?.let {
         // Fix a portable decimal grammar before invoking platform number parsers.
         if (!DOUBLE_PATTERN.matches(it)) throw ConfigValueException(key, "finite double")
