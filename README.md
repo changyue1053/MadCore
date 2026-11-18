@@ -77,7 +77,7 @@ GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `exa
 
 ## 网络基础（开发分支）
 
-`HttpClient` + `HttpTransport` 为阻塞接口，宿主必须放到非 UI 线程。`UrlConnectionTransport` 仅在 JVM/Android 提供，支持 GET/POST，默认只允许 HTTPS、不自动跟随重定向、不加应用层重试。请求/响应体限额在 JVM/Android 适配器中执行；连接和读取超时是 socket 超时，不是包含 DNS/写入的全程 deadline，不提供取消。平台代理、CookieHandler、Authenticator 等全局网络钩子仍可能生效；不是 SSRF 防火墙。Android App 须自行声明 INTERNET 权限。
+`HttpClient` + `HttpTransport` 为阻塞接口，宿主必须放到非 UI 线程。`UrlConnectionTransport` 仅在 JVM/Android 提供，支持 GET/POST/PUT/DELETE，默认只允许 HTTPS、不自动跟随重定向、不加应用层重试。请求/响应体限额在 JVM/Android 适配器中执行；连接和读取超时是 socket 超时，不是包含 DNS/写入的全程 deadline，不提供取消。平台代理、CookieHandler、Authenticator 等全局网络钩子仍可能生效；不是 SSRF 防火墙。Android App 须自行声明 INTERNET 权限。
 
 响应非 2xx 仍返回状态/响应体；网络异常仅返回枚举错误，不附带 URL、头或正文。请求禁止 URL 内凭据、片段、换行头及传输层所有的头。TLS 校验采用平台默认，不关闭证书或主机名校验。测试仅显式给本机回环 HTTP 开绿灯。鸿蒙目前只有公共网络契约，须注入宿主适配器，不宣称已有原生 HTTP 实现。
 
@@ -85,7 +85,7 @@ GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `exa
 
 `IosUrlSessionTransport` 使用每次调用独立的 ephemeral NSURLSession；拒绝主线程调用，关闭 cookie/凭据存储/缓存，保留平台 TLS 校验。流式检查响应限额、不跟随重定向，超时会取消底层请求。Foundation 只有单个空闲超时，取连接/读取限额中的较小值，另有 `callTimeoutMillis` 总等待上限。公开接口仍是阻塞式，不提供调用方主动取消。系统代理、ATS 及其他宿主网络策略仍适用。
 
-CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、错误响应、重定向拒绝、固定/分块响应限额、超时及之后的新请求。测试配置存在不等于测试通过；`cc69dec` 的模拟器测试任务已通过（运行 https://github.com/changyue1053/MadCore/actions/runs/44246999178）；后续还增加 JUnit 用例非空/未跳过检查。以上平台状态为已确认结果。没有真机、真实公网 TLS 或宿主 App 集成结果。
+CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST/PUT/DELETE、错误响应、重定向拒绝、固定/分块响应限额、超时及之后的新请求。测试配置存在不等于测试通过；`cc69dec` 的模拟器测试任务已通过（运行 https://github.com/changyue1053/MadCore/actions/runs/44246999178）；后续还增加 JUnit 用例非空/未跳过检查。以上平台状态为已确认结果。目前已有独立 Swift/UIKit 宿主 App 的模拟器运行及不可信自签名 TLS 拒绝测试；仍没有物理真机或真实公网有效 TLS 覆盖。
 
 ## 鸿蒙 C/NAPI 边界预览（开发中）
 
