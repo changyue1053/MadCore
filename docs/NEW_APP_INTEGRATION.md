@@ -49,3 +49,16 @@ accident.
 - Build/release licensing and explicit publication approval remain open.
 - API stability and broader method/cancellation needs should be driven by new-app
   use cases, not by matching a previous repository's surface area.
+
+## Isolate reusable components' preferences
+
+Wrap one host-owned StringStore with NamespacedStringStore for each component,
+for example namespace `reader` and `editor`, both using logical key `theme`.
+They address `reader.theme` and `editor.theme` independently. Reconstructing a
+wrapper with the same namespace preserves the mapping. Namespace dots are forbidden
+to avoid ambiguous boundaries. Logical keys are limited to95 characters.
+
+Kotlin and ArkTS use the same mapping and validation rules. ArkTS hosts retain the
+original PreferencesStringStore to explicitly await flush. This provides no access
+control against other code that has the backend and does not share data between
+separate OS application sandboxes.

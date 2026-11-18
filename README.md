@@ -156,3 +156,9 @@ Harmony Storage 增加原样 ETS 的模拟后端测试，覆盖类型默认值�
 
 
 目标是让多个全新 App 独立引用同一套通用基础 SDK，不以旧工程等价迁移或兼容为目标。接入方式、宿主装配与平台验收见 [新 App 接入指南](docs/NEW_APP_INTEGRATION.md)。JVM消费者会检查重复API类，作为通用依赖冲突保护。
+
+## 多实例存储隔离
+
+Kotlin 与 Harmony ArkTS 提供同规则的 `NamespacedStringStore`，包装宿主提供的 StringStore，把逻辑键映射为 `namespace.key`。命名空间为1..32位小写字母开头的字母/数字/下划线/连字符（不允许点）；逻辑键最多95位，确保物理键不超过128位。不同实例可复用同一个后端而不覆盖彼此键值，不使用SDK全局状态。
+
+这只是键分区，不是安全沙箱、跨App共享存储、加密、事务或权限隔离。宿主可直接访问后端，因此仍须控制访问及同步；包装器不拥有后端、不清空其他键、不自动flush/close。Harmony需要持有原PreferencesStringStore调用flush。Android/iOS实际平台测试与Harmony原样ETS模拟测试验证相同分区规则，后者不代表设备持久化。

@@ -6,6 +6,8 @@ export class MadCore {
   static isJsonObject(input: string): boolean { return nativeCore.isJsonObject(input); }
 }
 
-export { PreferencesStringStore, StorageFailure, StorageException } from './Storage';
+export { PreferencesStringStore, StorageFailure, StorageException, StringStore } from './Storage';
 export { RcpHttpClient } from './RcpHttpClient';
 export { RcpRequest, RcpLimits, RcpResponse, RcpFailure, RcpTransportException } from './HttpPolicy';
+
+export { NamespacedStringStore } from './NamespacedStorage';

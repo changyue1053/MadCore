@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 required = {
+    ("com.mad.consumer.StorageIntegrationTest", "independentNamespaces"),
     ("com.mad.consumer.CoreIntegrationTest", "untrustedTlsIsRejected"),
     ("com.mad.consumer.LifecycleIntegrationTest", "publishedLifecycleOwnership"),
     ("com.mad.consumer.CoreIntegrationTest", "publishedCoreAndRealHttp"),

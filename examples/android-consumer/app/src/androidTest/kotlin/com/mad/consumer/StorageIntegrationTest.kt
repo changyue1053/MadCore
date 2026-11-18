@@ -3,6 +3,7 @@ package com.mad.consumer
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mad.core.storage.NamespacedStringStore
 import com.mad.core.storage.SharedPreferencesStringStore
 import com.mad.core.storage.StorageException
 import com.mad.core.storage.StorageFailure
@@ -21,6 +22,25 @@ class StorageIntegrationTest {
         }
     }
 
+    @Test fun independentNamespaces() {
+        val preferences = InstrumentationRegistry.getInstrumentation().targetContext
+            .getSharedPreferences("madcore_namespace_integration", Context.MODE_PRIVATE)
+        val backend = SharedPreferencesStringStore(preferences)
+        val first = NamespacedStringStore(backend, "first")
+        val second = NamespacedStringStore(backend, "second")
+        try {
+            first.put("theme", "dark")
+            second.put("theme", "light")
+            assertEquals("dark", first.get("theme"))
+            assertEquals("light", NamespacedStringStore(SharedPreferencesStringStore(preferences), "second").get("theme"))
+            first.remove("theme")
+            assertNull(first.get("theme"))
+            assertEquals("light", second.get("theme"))
+        } finally {
+            first.remove("theme")
+            second.remove("theme")
+        }
+    }
     @Test fun publishedStorageAndPlatformPersistence() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val preferences = context.getSharedPreferences("madcore_storage_integration", Context.MODE_PRIVATE)

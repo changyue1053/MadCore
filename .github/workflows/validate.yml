@@ -29,6 +29,7 @@ jobs:
           node --experimental-transform-types tools/test_harmony_http_policy.mjs
           node --experimental-transform-types tools/test_harmony_rcp_adapter.mjs
           node --experimental-transform-types tools/test_harmony_storage.mjs
+          node --experimental-transform-types tools/test_harmony_namespaced_storage.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
       - name: Consume only published artifacts from outside the checkout
         shell: bash

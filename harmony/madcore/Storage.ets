@@ -1,5 +1,11 @@
 import { preferences } from '@kit.ArkData';
 
+export interface StringStore {
+  get(key: string): string | null;
+  put(key: string, value: string): void;
+  remove(key: string): void;
+}
+
 export enum StorageFailure {
   InvalidKey = 'InvalidKey',
   ValueTooLarge = 'ValueTooLarge',
@@ -47,7 +53,7 @@ function checkValue(value: string): void {
  * Non-secret, unencrypted. No enumeration, global clear, context capture or automatic file creation.
  * This ArkTS API is NOT a bridge implementing the Kotlin StringStore interface.
  */
-export class PreferencesStringStore {
+export class PreferencesStringStore implements StringStore {
   private backend: preferences.Preferences;
   constructor(backend: preferences.Preferences) { this.backend = backend; }
 

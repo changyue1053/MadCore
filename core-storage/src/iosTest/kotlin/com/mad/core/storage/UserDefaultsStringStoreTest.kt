@@ -10,6 +10,15 @@ class UserDefaultsStringStoreTest {
         val defaults = NSUserDefaults(suiteName = suite)
         val store = UserDefaultsStringStore(defaults)
         try {
+            val first = NamespacedStringStore(store, "first")
+            val second = NamespacedStringStore(store, "second")
+            first.put("theme", "dark")
+            second.put("theme", "light")
+            assertEquals("dark", first.get("theme"))
+            assertEquals("light", NamespacedStringStore(UserDefaultsStringStore(NSUserDefaults(suiteName = suite)), "second").get("theme"))
+            first.remove("theme")
+            assertNull(first.get("theme"))
+            assertEquals("light", second.get("theme"))
             assertNull(store.get("value"))
             store.put("value", "你好")
             assertEquals("你好", UserDefaultsStringStore(NSUserDefaults(suiteName = suite)).get("value"))
@@ -26,6 +35,8 @@ class UserDefaultsStringStoreTest {
         } finally {
             defaults.removeObjectForKey("value")
             defaults.removeObjectForKey("typed")
+            defaults.removeObjectForKey("first.theme")
+            defaults.removeObjectForKey("second.theme")
         }
     }
 }
