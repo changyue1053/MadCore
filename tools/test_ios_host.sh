@@ -6,9 +6,9 @@ work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/madcore-ios-host.XXXXXXXX")
 cleanup() {
   python3 - "$MADCORE_IOS_SIMULATOR_UDID" <<'CLEANUP' || true
 import subprocess,sys
-for action in ('terminate', 'uninstall'):
+for action, bundle in [(a, b) for b in ('com.mad.consumer.smoke', 'com.mad.consumer.control') for a in ('terminate', 'uninstall')]:
     try:
-        subprocess.run(['xcrun','simctl',action,sys.argv[1],'com.mad.consumer.smoke'],
+        subprocess.run(['xcrun','simctl',action,sys.argv[1],bundle],
                        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
     except subprocess.TimeoutExpired:
         pass
@@ -45,5 +45,31 @@ xcrun --sdk iphonesimulator swiftc -parse-as-library "$work/App.swift" \
 codesign --force --sign - "$app"
 echo "Independent host installation $(date -u +%FT%TZ)"
 xcrun simctl install "$MADCORE_IOS_SIMULATOR_UDID" "$app"
+# Same UIKit launch/console route with no SDK, for diagnosis, not a replacement test.
+control="$work/MadCoreControl.app"
+mkdir -p "$control"
+python3 - "$root/examples/ios-host/Info.plist" "$control/Info.plist" <<'CONTROL'
+import plistlib,sys
+with open(sys.argv[1], 'rb') as f:
+    info=plistlib.load(f)
+info.update(CFBundleIdentifier='com.mad.consumer.control', CFBundleExecutable='MadCoreControl', CFBundleName='MadCoreControl')
+info.pop('NSAppTransportSecurity', None)
+with open(sys.argv[2], 'wb') as f:
+    plistlib.dump(info, f)
+CONTROL
+xcrun --sdk iphonesimulator swiftc -parse-as-library "$root/examples/ios-control/App.swift" \
+  -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+  -framework Foundation -framework UIKit -o "$control/MadCoreControl"
+codesign --force --sign - "$control"
+xcrun simctl install "$MADCORE_IOS_SIMULATOR_UDID" "$control"
+control_status=0
+python3 "$root/tools/run_ios_host.py" "$MADCORE_IOS_SIMULATOR_UDID" "${RUNNER_TEMP:-/tmp}/madcore-ios-control.log" \
+  com.mad.consumer.control MADCORE_CONTROL_PASS || control_status=$?
 echo "Independent host launch $(date -u +%FT%TZ)"
-python3 "$root/tools/run_ios_host.py" "$MADCORE_IOS_SIMULATOR_UDID" "${RUNNER_TEMP:-/tmp}/madcore-ios-host.log"
+host_status=0
+python3 "$root/tools/run_ios_host.py" "$MADCORE_IOS_SIMULATOR_UDID" "${RUNNER_TEMP:-/tmp}/madcore-ios-host.log" || host_status=$?
+if [ "$control_status" -ne 0 ] || [ "$host_status" -ne 0 ]; then
+  python3 "$root/tools/ios_launch_diagnostics.py" "$MADCORE_IOS_SIMULATOR_UDID" || true
+  echo "Control status=$control_status; SDK host status=$host_status (both required)"
+  exit 1
+fi
