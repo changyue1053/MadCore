@@ -27,7 +27,7 @@ jobs:
           ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" run
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -36,12 +36,26 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease
+      - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
       - name: Verify release AARs exist
         run: |
           for module in core-extension core-time core-json core-testkit core-logging core-config core-net madcore; do
             test -s "$module/build/outputs/aar/$module-release.aar"
           done
+      - name: Test an independent Android app on a managed emulator
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          test -e /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          consumer=$(mktemp -d)
+          cp -R examples/android-consumer/. "$consumer/"
+          python3 tools/http_fixture.py > "$RUNNER_TEMP/android-http-fixture.log" 2>&1 &
+          fixture=$!
+          trap 'kill "$fixture" || true' EXIT
+          curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" :app:assembleDebug :app:pixel2api30DebugAndroidTest
+          python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"
   ios:
     runs-on: macos-15
     timeout-minutes: 35

@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application' version '8.13.2'
+    id 'org.jetbrains.kotlin.android' version '2.2.21'
+}
+android {
+    namespace 'com.mad.consumer'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.mad.consumer'
+        minSdk 24
+        targetSdk 36
+        versionCode 1
+        versionName '0.1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    testOptions {
+        managedDevices {
+            devices {
+                pixel2api30(com.android.build.api.dsl.ManagedVirtualDevice) {
+                    device = 'Pixel 2'
+                    apiLevel = 30
+                    systemImageSource = 'aosp-atd'
+                }
+            }
+        }
+    }
+}
+kotlin { jvmToolchain(21) }
+dependencies {
+    implementation 'com.mad.core:madcore:0.1.0-SNAPSHOT'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'junit:junit:4.13.2'
+}
