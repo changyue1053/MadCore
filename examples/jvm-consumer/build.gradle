@@ -12,3 +12,11 @@ dependencies {
     implementation 'com.mad.core:core-testkit:0.1.0-SNAPSHOT'
 }
 application { mainClass = 'MainKt' }
+
+// Resolve artifacts only, then let the repository audit reject overlapping API classes.
+tasks.register('writeRuntimeClasspath') {
+    doLast {
+        file('runtime-classpath.json').text = groovy.json.JsonOutput.toJson(
+            configurations.runtimeClasspath.files.collect { it.absolutePath })
+    }
+}

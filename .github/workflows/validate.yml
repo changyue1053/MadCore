@@ -20,6 +20,7 @@ jobs:
       - run: python3 tools/check_source_boundary.py
       - run: python3 tools/test_http_fixture.py
       - run: python3 tools/test_tls_fixture.py
+      - run: python3 tools/test_jvm_classpath.py
       - name: Test native bridge memory/error paths with host stubs (not device execution)
         run: bash tools/test_native_bridge.sh
       - name: Test Harmony HTTP policy and mocked state (not device execution)
@@ -34,7 +35,8 @@ jobs:
         run: |
           consumer=$(mktemp -d)
           cp -R examples/jvm-consumer/. "$consumer/"
-          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" run
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" run writeRuntimeClasspath
+          python3 tools/check_jvm_classpath.py "$consumer/runtime-classpath.json"
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 40
