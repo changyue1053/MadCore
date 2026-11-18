@@ -22,6 +22,8 @@ for path in ROOT.glob('core-*/src/**/*.kt'):
             platform_allowed = ('java.io.', 'java.net.')
         if 'core-net/src/jvmTest/' in str(path.relative_to(ROOT)):
             platform_allowed = ('java.net.', 'java.util.concurrent.', 'com.sun.net.httpserver.')
+        if 'core-net/src/iosMain/' in str(path.relative_to(ROOT)) or 'core-net/src/iosTest/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('platform.Foundation.', 'platform.darwin.', 'kotlinx.cinterop.')
         if not dependency.startswith(allowed + platform_allowed):
             errors.append(f'unexpected import: {path.relative_to(ROOT)}: {dependency}')
 for path in list(ROOT.glob('*.gradle')) + list(ROOT.glob('*/build.gradle')):

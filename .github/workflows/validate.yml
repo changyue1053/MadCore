@@ -64,6 +64,17 @@ jobs:
           consumer=$(mktemp -d)
           cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
+      - name: Run actual iOS Simulator HTTP tests
+        shell: bash
+        run: |
+          python3 tools/http_fixture.py > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
+          fixture=$!
+          trap 'kill "$fixture" || true' EXIT
+          export MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
+          curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
+          ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test
   harmony-klib-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -6,3 +6,10 @@ kotlin {
         }
     }
 }
+
+if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
+    kotlin.targets.getByName('iosSimulatorArm64').testRuns.getByName('test').executionTask.configure {
+        def simulator = providers.environmentVariable('MADCORE_IOS_SIMULATOR_UDID').orNull
+        if (simulator != null) device.set(simulator)
+    }
+}
