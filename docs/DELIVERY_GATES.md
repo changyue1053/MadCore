@@ -51,3 +51,9 @@ success, failure and timeout, including fixed non-sensitive app/check/HTTP stage
 markers. A timeout fails even if a success marker was printed before hanging.
 This improves diagnosis, not the platform coverage claim; CI logs retain emitted
 failure evidence, while the temporary file itself is not a downloadable artifact.
+
+The iOS fixture is now generated and made ready before simulator boot, with its
+existing certificate-generation deadline and readiness retries unchanged. Behavior
+steps recheck process liveness and TLS readiness, and an always-run cleanup stops
+the ephemeral service. This addresses startup ordering after observed stalls in
+certificate generation; it does not prove the historical stall's root cause.

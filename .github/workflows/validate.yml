@@ -116,6 +116,23 @@ jobs:
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
       - name: Link native behavior tests before simulator startup
         run: ./gradlew --no-daemon -Pmadcore.target=ios :core-net:linkDebugTestIosSimulatorArm64 :core-storage:linkDebugTestIosSimulatorArm64 :core-lifecycle:linkDebugTestIosSimulatorArm64
+      - name: Build two published Kotlin upper libraries and one iOS umbrella
+        shell: bash
+        run: |
+          ./gradlew --no-daemon -Pmadcore.target=ios :core-storage:publishAllPublicationsToStagingRepository
+          bash tools/test_ios_kotlin_composition.sh build "$GITHUB_WORKSPACE/build/staging-repository" "$RUNNER_TEMP/kotlin-composition"
+      - name: Start TLS fixture before simulator boot
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
+          fixture=$!
+          echo "MADCORE_FIXTURE_PID=$fixture" >> "$GITHUB_ENV"
+          if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok; then
+            if kill -0 "$fixture" 2>/dev/null; then echo 'Fixture process alive but not ready'; else echo 'Fixture process exited before readiness'; fi
+            tail -n 80 "$RUNNER_TEMP/http-fixture.log"
+            exit 1
+          fi
       - name: Boot iOS simulator (separate bounded infrastructure stage)
         timeout-minutes: 10
         shell: bash
@@ -128,19 +145,21 @@ jobs:
         timeout-minutes: 15
         shell: bash
         run: |
-          python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
-          fixture=$!
-          trap 'kill "$fixture" || true' EXIT
-          if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok; then
-            if kill -0 "$fixture" 2>/dev/null; then echo 'Fixture process alive but not ready'; else echo 'Fixture process exited before readiness'; fi
-            tail -n 80 "$RUNNER_TEMP/http-fixture.log"
-            exit 1
-          fi
+          kill -0 "$MADCORE_FIXTURE_PID"
+          curl --fail http://127.0.0.1:18082/tls-ready
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test :core-lifecycle:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
           python3 tools/check_ios_storage_results.py
           python3 tools/check_ios_lifecycle_results.py
           bash tools/test_ios_host.sh
+      - name: Run independent Kotlin umbrella host
+        timeout-minutes: 4
+        run: bash tools/test_ios_kotlin_composition.sh run "$RUNNER_TEMP/kotlin-composition"
+      - name: Stop private HTTP/TLS fixture
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${MADCORE_FIXTURE_PID:-}" ]; then kill "$MADCORE_FIXTURE_PID" 2>/dev/null || true; fi
   harmony-native-har:
     runs-on: ubuntu-24.04
     timeout-minutes: 35

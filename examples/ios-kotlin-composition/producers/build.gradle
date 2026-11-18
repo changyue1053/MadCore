@@ -1,0 +1,23 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' version '2.2.21' apply false
+}
+subprojects {
+    apply plugin: 'org.jetbrains.kotlin.multiplatform'
+    apply plugin: 'maven-publish'
+    group = 'com.mad.composition'
+    version = '0.1.0'
+    repositories {
+        maven { url = uri(providers.gradleProperty('madcoreRepository').get()) }
+        mavenCentral()
+    }
+    kotlin {
+        iosSimulatorArm64()
+        sourceSets.commonMain.dependencies {
+            api 'com.mad.core:core-storage:0.1.0-SNAPSHOT'
+        }
+    }
+    publishing.repositories.maven {
+        name = 'probe'
+        url = uri(providers.gradleProperty('upperRepository').get())
+    }
+}

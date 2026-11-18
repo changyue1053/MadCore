@@ -37,3 +37,16 @@ loader behavior, persistence or remote package publication is established. The f
 Exact-commit CI determines whether these probes actually passed.
 
 The override mechanism follows [Huawei OHPM documentation](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-oh-package-json5-V5/). Development-only dependencies are not used for imported runtime Core types.
+
+## Kotlin upper libraries through one iOS umbrella
+
+A separate `examples/ios-kotlin-composition` probe publishes two independent
+Kotlin upper KLIBs against published Core storage, removes their sources, and
+builds an app-specific umbrella from Maven coordinates. A Swift simulator host
+imports only that one framework and checks shared object identity, concrete type
+casts and cross-upper mutation. This is distinct from the thin Swift archive
+probe above; it does not approve co-loading separate Kotlin frameworks or mixing
+versions. Only Core storage and arm64 Simulator are covered by this probe.
+
+The architecture follows [Kotlin's multi-module configuration guidance](https://kotlinlang.org/docs/multiplatform/multiplatform-project-configuration.html).
+Exact-commit CI still determines whether build and execution passed.

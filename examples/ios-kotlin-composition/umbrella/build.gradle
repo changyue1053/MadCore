@@ -1,0 +1,38 @@
+plugins { id 'org.jetbrains.kotlin.multiplatform' version '2.2.21' }
+repositories {
+    maven { url = uri(providers.gradleProperty('upperRepository').get()) }
+    maven { url = uri(providers.gradleProperty('madcoreRepository').get()) }
+    mavenCentral()
+}
+kotlin {
+    iosSimulatorArm64 {
+        binaries.framework {
+            baseName = 'AppComposition'
+            isStatic = true
+            export 'com.mad.composition:upper-alpha:0.1.0'
+            export 'com.mad.composition:upper-beta:0.1.0'
+            export 'com.mad.core:core-storage:0.1.0-SNAPSHOT'
+        }
+    }
+    sourceSets.commonMain.dependencies {
+        api 'com.mad.composition:upper-alpha:0.1.0'
+        api 'com.mad.composition:upper-beta:0.1.0'
+        api 'com.mad.core:core-storage:0.1.0-SNAPSHOT'
+    }
+}
+// The compiler resolves only published coordinates, not producer project dependencies.
+tasks.register('verifyPublishedInputs') {
+    doLast {
+        def configuration = configurations.getByName('iosSimulatorArm64CompileKlibraries')
+        def ids = configuration.incoming.resolutionResult.allComponents.collect { it.id }
+        if (ids.any { it instanceof org.gradle.api.artifacts.component.ProjectComponentIdentifier && it.projectPath != ':' }) {
+            throw new GradleException('Unexpected source project dependency')
+        }
+        ['upper-alpha-iossimulatorarm64', 'upper-beta-iossimulatorarm64', 'core-storage-iossimulatorarm64'].each { name ->
+            def matches = ids.findAll { it instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.module == name }
+            if (matches.size() != 1) throw new GradleException('Expected one published native input: ' + name)
+        }
+        println('Umbrella resolved two published upper KLIBs and one Core storage KLIB')
+    }
+}
+tasks.named('linkReleaseFrameworkIosSimulatorArm64') { dependsOn 'verifyPublishedInputs' }
