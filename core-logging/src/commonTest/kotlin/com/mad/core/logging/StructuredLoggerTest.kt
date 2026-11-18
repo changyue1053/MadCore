@@ -4,6 +4,7 @@ import com.mad.core.testkit.ManualClock
 import com.mad.core.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -58,14 +59,25 @@ class StructuredLoggerTest {
     }
 
     @Test fun rejectedRecordsDoNotReadClock() {
+        var reads = 0
         val clock = object : Clock {
-            override fun epochMillis(): Long = error("must not read")
-            override fun elapsedNanos(): Long = error("must not read")
+            override fun epochMillis(): Long { reads++; return 0L }
+            override fun elapsedNanos(): Long { reads++; return 0L }
         }
         val sink = RecordingSink()
         val logger = StructuredLogger(sink, clock)
         assertFalse(logger.record(LogLevel.Info, "core", "sensitive"))
+        assertFalse(logger.record(LogLevel.Debug, "core", "filtered", privacy = FieldPrivacy.Public))
+        assertFalse(logger.record(LogLevel.Info, "invalid space", "check", privacy = FieldPrivacy.Public))
+        assertEquals(0, reads)
         assertEquals(0, sink.records.size)
+    }
+
+    @Test fun fatalSinkErrorPropagates() {
+        val sink = object : LogSink { override fun accept(record: LogRecord) { throw AssertionError("fatal test") } }
+        assertFailsWith<AssertionError> {
+            StructuredLogger(sink).record(LogLevel.Info, "core", "check", privacy = FieldPrivacy.Public)
+        }
     }
 
     @Test fun ordinaryClockFailureIsIsolated() {
