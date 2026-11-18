@@ -29,7 +29,7 @@ python3 tools/check_source_boundary.py
 ./gradlew -Pmadcore.target=jvm jvmTest
 ./gradlew -Pmadcore.target=jvm publishAllPublicationsToStagingRepository
 ./gradlew -Pmadcore.target=android :madcore:bundleReleaseAar
-./gradlew -Pmadcore.target=ios :madcore:assembleMadCoreReleaseXCFramework
+bash tools/build_ios_xcframework.sh
 ./gradlew -Pmadcore.target=ohos :madcore:compileKotlinOhosArm64
 ```
 
@@ -99,7 +99,7 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 
 示例位于 `examples/harmony-consumer`。云端将构建出的 HAR 复制到完全独立目录，再安装此本地制品并运行 `assembleHap`，没有依赖源仓或 MadCore Kotlin 源码。测试 App 使用已获准 SDK 的 C++ runtime，仅在临时 CI 目录组包，不发布。API18 只是本次构建配置，不能据此保证最低运行版本。
 
-发布前仍需处理：SDK/运行库分发许可、签名与设备运行、生成声明的 ArkTS 警告、工具链 SemVer 警告，以及 CLI 自带 pnpm 安装时报告的一项 high 安全告警。没有运行 `npm audit fix --force` 或隐藏这些警告。
+发布前仍需处理：SDK/运行库分发许可、签名与设备运行、生成声明的 ArkTS 警告、工具链 SemVer 警告，旧构建曾报告 CLI 安装 pnpm 的 high 安全告警，现已通过下述官方 npm 路线移除该安装路径。没有运行 `npm audit fix --force` 或隐藏这些警告。
 
 ## 受限本地字符串存储（开发中）
 
@@ -113,10 +113,15 @@ Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主�
 
 `3f46501` 的 [云端运行](https://github.com/changyue1053/MadCore/actions/runs/44258322761) 已通过仓外 Maven 消费、APK 编译及 API30 标准 AOSP x86_64 模拟器真实网络测试。该记录不覆盖本节新加的存储代码；存储行为以之后对应提交 CI 为准。未接受 ATD 专用协议，标准镜像使用 runner 已有 SDK 许可；没有自动同意命令。真机、API24 和真实公网 TLS 尚未验证。
 
-### 鸿蒙构建依赖安全（验证中）
+### 鸿蒙构建依赖安全（已验证 npm 路线）
 
-pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。切换是否兼容须看对应 CI；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
+pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。`bc93473` 及 `f1ecc55` 已通过实际 HAR/仓外消费/HAP 构建和无 wrapper pnpm 门禁；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
 
 API18 的 Harmony NetworkKit 暂无已确认的禁用重定向参数；官方 maxRedirects 从 API23 才支持。因此不能把自动跟随重定向的适配器冒充现有网络安全契约实现，目前保留宿主注入边界，不以响应后的检查替代发送前拒绝。
 
 iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整的数据收集/跟踪政策。禁止借计时 API 做指纹识别或发送设备启动时间；可发送的仅限应用内事件间隔。SDK 不自行上传存储或日志。最终应用、三方依赖和分发流程仍须隐私审查。参考 [Kotlin 官方说明](https://kotlinlang.org/docs/multiplatform/multiplatform-privacy-manifest.html)。
+
+
+### 当前完整 CI 里程碑
+
+`f1ecc55b34c17ad96d3d6a073fff93fddc9f17b5` 的 [运行 44264199192](https://github.com/changyue1053/MadCore/actions/runs/44264199192) 四项全部通过：JVM、Android独立App模拟器3用例、iOS原生HTTP/存储及两片framework隐私清单、鸿蒙字节码HAR/独立消费/未签名HAP与npm模式门禁。此后本README更新不改变该已验证代码。通过不等于真机/全部平台功能等价、SDK分发许可或可直接发布。
