@@ -1,4 +1,5 @@
 import MadCore
+import Foundation
 
 let version: String = MadCoreInfo.shared.version
 
@@ -18,6 +19,15 @@ func constructNativeTransport() throws {
 
 func useMemoryStorage() throws {
     let store: StringStore = MemoryStringStore()
+    try store.put(key: "theme", value: "dark")
+    _ = try store.get(key: "theme")
+    try store.remove(key: "theme")
+}
+
+// Check concrete Foundation adapter bridge and throwing methods too.
+func useNativeStorage() throws {
+    let defaults = UserDefaults(suiteName: "com.mad.consumer.typecheck")!
+    let store = UserDefaultsStringStore(defaults: defaults)
     try store.put(key: "theme", value: "dark")
     _ = try store.get(key: "theme")
     try store.remove(key: "theme")

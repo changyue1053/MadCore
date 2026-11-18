@@ -27,6 +27,12 @@ class StringStoreTest {
         s.put("exact", "é".repeat(32768))
         assertEquals(StorageFailure.ValueTooLarge,
             assertFailsWith<StorageException> { s.put("key", "é".repeat(32769)) }.failure)
+        for (invalid in listOf("\uD800", "\uDC00", "\uD800x")) {
+            assertEquals(StorageFailure.InvalidValue,
+                assertFailsWith<StorageException> { s.put("key", invalid) }.failure)
+        }
+        s.put("unicode", "😀")
+        assertEquals("😀", s.get("unicode"))
         assertEquals("old", s.get("key"))
         assertEquals(65536, s.get("exact")!!.encodeToByteArray().size)
         assertFalse(s.toString().contains("old"))

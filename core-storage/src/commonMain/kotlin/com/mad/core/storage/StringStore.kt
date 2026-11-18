@@ -7,7 +7,7 @@ class StorageException(val failure: StorageFailure) : Exception("Storage failure
 
 /**
  * Non-secret, bounded string preferences. Missing is null; an empty string is a value.
- * Keys: lowercase ASCII identifiers, 1..128 chars. Values: at most 65536 UTF-8 bytes.
+ * Keys: lowercase ASCII identifiers, 1..128 chars. Values: valid Unicode, at most 65536 UTF-8 bytes.
  * No enumeration, clear-all, transactions, encryption, cross-process coordination or crash durability.
  * Read-modify-write is NOT atomic. Host owns the backend namespace, backup policy and scheduling.
  * Backend errors do not promise rollback: a failed write may already affect in-memory state.
@@ -29,9 +29,19 @@ internal fun checkStorageKey(key: String) {
 }
 
 internal fun checkStorageValue(value: String) {
-    if (value.length > 65536 || value.encodeToByteArray().size > 65536) {
-        throw StorageException(StorageFailure.ValueTooLarge)
+    if (value.length > 65536) throw StorageException(StorageFailure.ValueTooLarge)
+    var i = 0
+    while (i < value.length) {
+        val c = value[i++]
+        if (c in '\uD800'..'\uDBFF') {
+            if (i == value.length || value[i++] !in '\uDC00'..'\uDFFF') {
+                throw StorageException(StorageFailure.InvalidValue)
+            }
+        } else if (c in '\uDC00'..'\uDFFF') {
+            throw StorageException(StorageFailure.InvalidValue)
+        }
     }
+    if (value.encodeToByteArray().size > 65536) throw StorageException(StorageFailure.ValueTooLarge)
 }
 
 /** Single-threaded, process-memory only. Caller must synchronize access if shared. */
