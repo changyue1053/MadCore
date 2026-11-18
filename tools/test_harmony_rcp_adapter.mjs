@@ -35,6 +35,16 @@ try {
   assert.equal(state.configuration.requestConfiguration.security, undefined);
   assert.equal(state.configuration.requestConfiguration.tracing, undefined);
   assert.equal(typeof state.request.destination, 'function');
+  assert.deepEqual(response.headers.get('set-cookie'), ['a=1', 'b=2']);
+  assert.deepEqual(response.headers.get('x-quoted'), ['a,b']);
+  assert.deepEqual(response.headers.get('X-Case'), ['upper']);
+  assert.deepEqual(response.headers.get('x-case'), ['lower']);
+  assert.equal(response.headers.has('missing'), false);
+  response.headers.get('set-cookie').push('mutated');
+  response.headers.clear();
+  state.headers['set-cookie'].push('platform-mutated');
+  assert.deepEqual(response.headers.get('set-cookie'), ['a=1', 'b=2']);
+  state.headers['set-cookie'].pop();
   assert.equal(state.closes, 1);
   assert.equal(state.cancels, 0);
   reset('redirect');

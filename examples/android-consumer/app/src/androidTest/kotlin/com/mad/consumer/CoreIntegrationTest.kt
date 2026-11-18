@@ -24,7 +24,9 @@ class CoreIntegrationTest {
         assertEquals(201, posted.status)
         assertEquals("payload", posted.body.decodeToString())
         assertEquals(400, client.execute(HttpRequest("$base/error")).status)
+        assertEquals("0", client.execute(HttpRequest("$base/redirect-count")).body.decodeToString())
         assertEquals(302, client.execute(HttpRequest("$base/redirect")).status)
+        assertEquals("0", client.execute(HttpRequest("$base/redirect-count")).body.decodeToString()) // server-side no-follow evidence
         fails(HttpFailure.InvalidRequest) { HttpClient(UrlConnectionTransport()).execute(HttpRequest("$base/ok")) }
         fails(HttpFailure.ResponseTooLarge) { client(max = 2).execute(HttpRequest("$base/ok")) }
         fails(HttpFailure.ResponseTooLarge) { client(max = 8).execute(HttpRequest("$base/chunked")) }

@@ -66,7 +66,14 @@ export class RcpHttpClient {
         session.fetch(nativeRequest).then((response: rcp.Response) => {
           if (settled) return;
           try {
-            const result = new RcpResponse(response.statusCode, body.finish());
+            // Preserve SDK-reported field names and value arrays. Never split comma values
+            // (Set-Cookie and quoted values cannot be safely reconstructed that way).
+            const headers = new Map<string, string[]>();
+            for (const name of Object.keys(response.headers)) {
+              const value = response.headers[name];
+              if (value !== undefined) headers.set(name, typeof value === 'string' ? [value] : value.slice());
+            }
+            const result = new RcpResponse(response.statusCode, body.finish(), headers);
             settled = true;
             cleanup();
             resolve(result);

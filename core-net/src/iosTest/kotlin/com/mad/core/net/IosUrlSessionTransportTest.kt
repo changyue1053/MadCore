@@ -28,7 +28,9 @@ class IosUrlSessionTransportTest {
         val post = offMain { client.execute(HttpRequest("$base/post", HttpMethod.POST, body = "payload".encodeToByteArray())) }
         assertEquals(201, post.status)
         assertEquals("payload", post.body.decodeToString())
+        assertEquals("0", execute("/redirect-count").body.decodeToString())
         assertEquals(302, execute("/redirect").status)
+        assertEquals("0", execute("/redirect-count").body.decodeToString()) // server proves target never reached
         assertEquals(400, execute("/error").status)
         for (path in listOf("/ok", "/chunked")) {
             val small = HttpClient(IosUrlSessionTransport(), HttpLimits(maxResponseBytes = 4, allowInsecureHttp = true))

@@ -5,7 +5,8 @@ export const state = {
   cancels: 0,
   closes: 0,
   configuration: undefined as any,
-  request: undefined as any
+  request: undefined as any,
+  headers: { 'set-cookie': ['a=1', 'b=2'], 'x-quoted': 'a,b', 'X-Case': 'upper', 'x-case': 'lower', missing: undefined }
 };
 class Request {
   destination: (chunk: ArrayBuffer) => void = () => {};
@@ -21,17 +22,17 @@ class Session {
     if (state.mode === 'late') {
       return new Promise(resolve => setTimeout(() => {
         request.destination(new Uint8Array([9]).buffer);
-        resolve({ statusCode: 200 });
+        resolve({ statusCode: 200, headers: state.headers });
       }, 20));
     }
     if (state.mode === 'overflow' || state.mode === 'reentrantOverflow') {
       request.destination(new Uint8Array([1, 2, 3, 4]).buffer);
       request.destination(new Uint8Array([9]).buffer);
-      return Promise.resolve({ statusCode: 200 });
+      return Promise.resolve({ statusCode: 200, headers: state.headers });
     }
     request.destination(new Uint8Array([1, 2]).buffer);
     request.destination(new Uint8Array([3]).buffer);
-    return Promise.resolve({ statusCode: state.mode === 'redirect' ? 302 : 200 });
+    return Promise.resolve({ statusCode: state.mode === 'redirect' ? 302 : 200, headers: state.headers });
   }
   cancel(request: Request): void {
     state.cancels++;

@@ -110,15 +110,23 @@ export class BoundedResponseBody {
 
 export class RcpResponse {
   readonly status: number;
+  private headerValues: Map<string, string[]>;
   private payload: ArrayBuffer;
-  constructor(status: number, body: ArrayBuffer) {
+  constructor(status: number, body: ArrayBuffer, headers: Map<string, string[]> = new Map<string, string[]>()) {
     if (!Number.isInteger(status) || status < 100 || status > 599) {
       throw new RcpTransportException(RcpFailure.Io);
     }
     this.status = status;
+    this.headerValues = new Map<string, string[]>();
+    headers.forEach((values: string[], name: string) => { this.headerValues.set(name, values.slice()); });
     this.payload = body.slice(0);
   }
   get body(): ArrayBuffer { return this.payload.slice(0); }
   get bodySize(): number { return this.payload.byteLength; }
+  get headers(): Map<string, string[]> {
+    const copy = new Map<string, string[]>();
+    this.headerValues.forEach((values: string[], name: string) => { copy.set(name, values.slice()); });
+    return copy;
+  }
   toString(): string { return 'RcpResponse(status=' + this.status + ')'; }
 }

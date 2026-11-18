@@ -134,7 +134,7 @@ iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整
 
 ## 鸿蒙 RCP 网络路线（实验性、待设备验证）
 
-`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求只支持 GET/POST，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应目前返回状态/正文，不完整映射 Kotlin 响应头契约。
+`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求只支持 GET/POST，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应返回状态、正文和防御性复制的 Map<string, string[]> 响应头，保留平台给出的键及数组值，不拆分逗号字符串，也不能还原平台已合并的信息；仍不是 Kotlin 接口桥。
 
 上限在复制分块前检查，失败后取消并关闭；迟到回调不重复结算。连接/空闲/传输超时及总等待计时器均设置，原生超时代码只映射为脱敏分类。上限约束 SDK 保留的数据，不保证平台内部缓冲或单次分块分配大小。没有关闭证书或主机名验证。公开错误不包含 URL、头、正文或平台诊断。
 
@@ -148,3 +148,6 @@ iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整
 `tools/test_native_bridge.sh` 在 Linux 主机上编译实际 NAPI C 桥，使用明确的假 NAPI/Kotlin C ABI 与地址/未定义行为检查器，覆盖参数错误、UTF-8 长度、嵌入 NUL、64 KiB 上限、转换失败、结果创建失败及注册错误。它只验证桥自身的内存与错误路径，不替代真实 NAPI、Kotlin/Native 运行时、ABI 装载或设备验证。
 
 独立 Harmony 示例增加 `NativeSmoke.ets` 的 11 项原生调用检查，包括 Unicode、空/非法 JSON、带 NUL 文本和 64 KiB 边界。只有未来设备实际执行全部断言才显示通过；当前 CI 仍只负责其编译/打包，不虚构设备测试结果。
+
+
+Harmony Storage 增加原样 ETS 的模拟后端测试，覆盖类型默认值探测、UTF-8 上限、非法代理项与 flush 错误；不代表真实设备持久化。Android/iOS 的实际 HTTP 测试增加服务端重定向目标命中计数，要求请求前后为零，而不是只检查302状态。跨运行时桥的线程、引用、取消和关闭门槛见 [设计契约](docs/CROSS_RUNTIME_BRIDGE.md)，尚未实现异步对象桥。新增测试通过状态以对应提交 CI 为准。
