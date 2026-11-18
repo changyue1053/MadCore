@@ -12,6 +12,7 @@ import java.net.URI
  * Android hosts need INTERNET permission and must call off the main thread.
  */
 class UrlConnectionTransport : HttpTransport {
+    @Throws(HttpTransportException::class)
     override fun execute(request: HttpRequest, limits: HttpLimits): HttpResponse {
         if (request.url.startsWith("http://") && !limits.allowInsecureHttp) throw HttpTransportException(HttpFailure.InvalidRequest)
         if (request.bodySize > limits.maxRequestBytes) throw HttpTransportException(HttpFailure.RequestTooLarge)

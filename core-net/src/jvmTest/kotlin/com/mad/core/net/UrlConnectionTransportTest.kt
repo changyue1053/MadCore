@@ -8,6 +8,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class UrlConnectionTransportTest {
+    @Test fun directAdapterRejectsCleartext() {
+        assertEquals(HttpFailure.InvalidRequest, assertFailsWith<HttpTransportException> {
+            UrlConnectionTransport().execute(HttpRequest("http://127.0.0.1:1"), HttpLimits())
+        }.failure)
+    }
+
     @Test fun realLoopbackGetPostErrorsRedirectAndBodyLimit() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val targetCalls = AtomicInteger()
