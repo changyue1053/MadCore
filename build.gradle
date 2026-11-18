@@ -14,7 +14,10 @@ subprojects {
     group = 'com.mad.core'
     version = '0.1.0-SNAPSHOT'
     repositories {
-        if (target == 'ohos') maven { url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/') }
+        if (target == 'ohos') maven {
+            url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/')
+            content { includeVersionByRegex('.*', '.*', '.+-[0-9]+\\.[0-9]+\\.[0-9]+') }
+        }
         google()
         mavenCentral()
     }

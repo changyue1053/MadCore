@@ -1,7 +1,10 @@
 pluginManagement {
     def ohos = providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos'
     repositories {
-        if (ohos) maven { url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/') }
+        if (ohos) maven {
+            url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/')
+            content { includeVersionByRegex('.*', '.*', '.+-[0-9]+\\.[0-9]+\\.[0-9]+') }
+        }
         gradlePluginPortal()
         google()
         mavenCentral()

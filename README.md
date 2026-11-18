@@ -2,7 +2,7 @@
 
 独立 Core 基础 SDK 的初始源码提取稿。目标为 Android、iOS、鸿蒙，供后续业务 SDK 共用。
 
-**当前不是可发布的三端 SDK。Kotlin 编译和平台运行验证尚未完成。**
+**当前不是可发布的三端 SDK。平台运行验证尚未完成。**
 
 ## 本批内容
 
@@ -36,15 +36,15 @@ python3 tools/check_source_boundary.py
 
 ## 平台状态
 
-- JVM：保留原测试，未执行 Kotlin 编译/单测。
-- Android：AAR 构建目标已配置，未编译、未做独立 App 集成。
-- iOS：配置真机/模拟器 arm64 和单一静态 XCFramework；未编译、未检查 Swift 泛型导出、未运行。
+- JVM：提交 `869bf64` 的云端编译、测试、Maven 本地发布及仓外制品消费者运行均已通过。
+- Android：提交 `869bf64` 的云端 Release AAR 构建及五模块产物存在性检查通过；未做独立 App 集成/设备测试。
+- iOS：提交 `869bf64` 的云端 arm64 真机/模拟器 XCFramework 构建、产物检查及独立 Swift 版本入口 typecheck 通过；未运行 App，未完整验证泛型 API 消费。
 - 鸿蒙：只配置 ohosArm64 编译目标。**尚无 NAPI/ArkTS 入口、独立 HAR 和 App，不能称为鸿蒙可接入。**
 - 后续多个 SDK 共用 Core 的静态链接和类型身份策略仍待设计/实测，不承诺当前 umbrella 可直接与其他独立 framework 组合。
 
 ## 下一批
 
-1. 在可用工具链下执行现有测试，修正未经验证的构建配置。
+1. 完成鸿蒙 fork 工具链编译验证，保留各平台独立构建门禁。
 2. 加三端仓外消费者；完成鸿蒙 HAR/ArkTS 及 Swift 友好 API。
 3. 按公共边界提取网络、观测、配置、平台适配和生命周期；这些本批未实现。
 4. 可选身份/存储配额/韧性/i18n 按需分包；Compose UI、登录路由、升级业务和测试夹具不进入默认基础包。
@@ -58,3 +58,5 @@ python3 tools/check_source_boundary.py
 `core-testkit` 提供单线程测试用 `ManualClock`，支持推进时间、独立墙钟跳变及溢出保护；它不进入 `madcore` 默认依赖。
 
 GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `examples/jvm-consumer` 复制到仓库外，只通过 Maven 制品坐标消费。工作流定义不是通过证明，以对应提交的运行结果为准。该验证不覆盖三端 App、Swift 导出或鸿蒙 HAR。
+
+云端验证记录：https://github.com/changyue1053/MadCore/actions/runs/44239436313 。其中鸿蒙任务独立判定，其他任务通过不代表鸿蒙通过。
