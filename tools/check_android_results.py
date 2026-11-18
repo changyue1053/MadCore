@@ -2,6 +2,7 @@
 import sys
 from test_result_gate import require_cases
 required = {
+    ("com.mad.consumer.SharedCoreIntegrationTest", "twoIndependentAarsShareCore"),
     ("com.mad.consumer.StorageIntegrationTest", "independentNamespaces"),
     ("com.mad.consumer.CoreIntegrationTest", "untrustedTlsIsRejected"),
     ("com.mad.consumer.LifecycleIntegrationTest", "publishedLifecycleOwnership"),

@@ -20,8 +20,18 @@ layout needs a separate export/link strategy and test; do not infer it from this
 probe. Current artifacts are same-toolchain evaluation builds, not Swift ABI
 stability or cross-version compatibility promises.
 
-Android currently tests a single artifact-only app, not two upper-SDK AARs.
-Harmony currently tests a single independent HAR consumer and unsigned HAP; a
-two-upper-HAR graph and device runtime are not verified. Keep those coverage gaps
-explicit rather than treating JVM or Swift evidence as a three-platform result.
+Android additionally builds Alpha/Beta in an outside-checkout library project,
+then copies their AARs to the independent app and deletes the upper SDK build
+project. The host explicitly resolves Core from staged Maven; local AAR files do
+not carry transitive dependency metadata. The emulator test passes a StringStore
+between the AARs and checks instance/type identity. Archive guards reject embedded
+Core classes/native libraries. This is not published upper-AAR metadata validation.
+
+Harmony builds two separate thin HARs against Core as a development dependency,
+then deletes the upper projects before consuming their HARs plus one explicit
+Core HAR in an unsigned HAP. A compiled page-level function passes the shared
+NamespacedStringStore type from Alpha to Beta. Archive checks require exactly one
+libmadcore.so/libmadcore_napi.so pair and no nested/native payloads in the upper
+HARs. These are compile/package checks only: no Harmony runtime object identity,
+loader behavior, persistence or transitive package publication is established.
 Exact-commit CI determines whether these probes actually passed.

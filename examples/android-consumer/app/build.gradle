@@ -32,6 +32,7 @@ android {
 }
 kotlin { jvmToolchain(21) }
 dependencies {
+    implementation files('libs/alpha-release.aar', 'libs/beta-release.aar')
     implementation 'com.mad.core:madcore:0.1.0-SNAPSHOT'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'junit:junit:4.13.2'

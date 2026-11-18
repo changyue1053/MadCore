@@ -23,6 +23,8 @@ jobs:
       - run: python3 tools/test_jvm_classpath.py
       - run: python3 tools/test_publication_graph.py
       - run: python3 tools/test_harmony_binary_inventory.py
+      - run: python3 tools/test_upper_aars.py
+      - run: python3 tools/test_harmony_composition.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
       - name: Test experimental async ownership contract (host only)
@@ -72,6 +74,14 @@ jobs:
           sudo chmod a+rw /dev/kvm
           consumer=$(mktemp -d)
           cp -R examples/android-consumer/. "$consumer/"
+          upper=$(mktemp -d)
+          cp -R examples/android-upper-sdks/. "$upper/"
+          ./gradlew --no-daemon -p "$upper" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" assembleRelease
+          mkdir -p "$consumer/app/libs"
+          cp "$upper/alpha/build/outputs/aar/alpha-release.aar" "$consumer/app/libs/"
+          cp "$upper/beta/build/outputs/aar/beta-release.aar" "$consumer/app/libs/"
+          python3 tools/check_upper_aars.py "$consumer/app/libs"
+          rm -rf -- "$upper"
           python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/android-http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT

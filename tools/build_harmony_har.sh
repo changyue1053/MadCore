@@ -86,18 +86,67 @@ b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='con
 PY
 (cd "$consumer" && ohpm install --all && hvigorw assembleHar --mode module -p module=consumer@default -p product=default -p buildMode=release --no-daemon)
 find "$consumer/consumer/build" -name '*.har' -type f | grep .
+# Two independent upper SDKs: source modules compile against Core as a development
+# dependency. Their final consumer explicitly supplies Core; this is not a test of
+# published transitive dependency metadata or independent version negotiation.
+composition="$work/composition"
+mkdir -p "$composition"
+for upper in alpha beta; do
+  upperdir="$composition/$upper"
+  mkdir -p "$upperdir/upper/src/main" "$upperdir/artifacts"
+  cp -R "$project/AppScope" "$project/hvigor" "$upperdir/"
+  cp "$project/hvigorfile.ts" "$project/oh-package.json5" "$upperdir/"
+  cp "$project/madcore/hvigorfile.ts" "$project/madcore/build-profile.json5" "$upperdir/upper/"
+  cp "$har" "$upperdir/artifacts/madcore.har"
+  python3 - "$project" "$upperdir" "$upper" <<'PYUPPER'
+import sys,pathlib,json
+p,c=map(pathlib.Path,sys.argv[1:3]);name=sys.argv[3]
+b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='upper';b['modules'][0]['srcPath']='./upper';(c/'build-profile.json5').write_text(json.dumps(b))
+(c/'upper/src/main/module.json5').write_text(json.dumps({'module':{'name':'upper','type':'har','deviceTypes':['phone']}}))
+(c/'upper/oh-package.json5').write_text(json.dumps({'name':'madcore-upper-'+name,'version':'0.1.0','main':'Index.ets','devDependencies':{'madcore':'file:../artifacts/madcore.har'}}))
+source = "import { StringStore, NamespacedStringStore } from 'madcore';\n"
+if name == 'alpha':
+    source += "export function alphaStore(backend: StringStore): NamespacedStringStore { return new NamespacedStringStore(backend, 'alpha'); }\n"
+else:
+    source += "export function betaUse(store: NamespacedStringStore): StringStore { store.put('shared', 'beta'); return store; }\n"
+(c/'upper/Index.ets').write_text(source)
+PYUPPER
+  (cd "$upperdir" && ohpm install --all && hvigorw assembleHar --mode module -p module=upper@default -p product=default -p buildMode=release --no-daemon)
+  upperhar=$(find "$upperdir/upper/build" -name '*.har' -type f -print -quit)
+  test -n "$upperhar"
+  cp "$upperhar" "$composition/$upper.har"
+done
+# Remove upper projects and their development Core copies before final consumption.
+rm -rf -- "$composition/alpha" "$composition/beta"
 # Also assemble an independent unsigned application, still using only the HAR.
 app="$work/app-consumer"
 cp -R "$root/examples/harmony-consumer" "$app"
 mkdir -p "$app/libs"
 cp "$har" "$app/libs/madcore.har"
+cp "$composition/alpha.har" "$composition/beta.har" "$app/libs/"
+python3 - "$app" <<'PYAPP'
+import sys,pathlib,json
+p=pathlib.Path(sys.argv[1]);m=p/'entry/oh-package.json5';d=json.loads(m.read_text())
+d['dependencies']['madcore-upper-alpha']='file:../libs/alpha.har'
+d['dependencies']['madcore-upper-beta']='file:../libs/beta.har'
+m.write_text(json.dumps(d))
+# Import into a real page so this is not an unreferenced source file.
+page=p/'entry/src/main/ets/pages/Index.ets'
+source=page.read_text()
+prefix="import { StringStore, NamespacedStringStore } from 'madcore';\nimport { alphaStore } from 'madcore-upper-alpha';\nimport { betaUse } from 'madcore-upper-beta';\n"
+probe="\nexport function upperComposition(backend: StringStore): StringStore { const shared: NamespacedStringStore = alphaStore(backend); return betaUse(shared); }\n"
+page.write_text(prefix+source+probe)
+PYAPP
 # Test app supplies its SDK C++ runtime. This is ephemeral validation, not a published package.
 cxx=$(find "$cli/sdk/default/openharmony/native" -path '*/aarch64-linux-ohos/*' -name libc++_shared.so -type f -print -quit)
 test -n "$cxx"
 mkdir -p "$app/entry/libs/arm64-v8a"
 cp "$cxx" "$app/entry/libs/arm64-v8a/"
 (cd "$app" && ohpm install --all && hvigorw assembleHap --mode module -p module=entry@default -p product=default -p buildMode=debug --no-daemon)
-find "$app/entry/build" -name '*.hap' -type f | grep .
+hap=$(find "$app/entry/build" -name '*unsigned.hap' -type f -print -quit)
+if [[ -z "$hap" ]]; then hap=$(find "$app/entry/build" -name '*.hap' -type f -print -quit); fi
+test -n "$hap"
+python3 "$root/tools/check_harmony_composition.py" "$har" "$composition/alpha.har" "$composition/beta.har" "$hap"
 mkdir -p "$root/build/harmony"
 cp "$har" "$root/build/harmony/madcore.har"
 echo 'HAR build, separate HAR consumer and unsigned app assembly passed; no Harmony device execution or redistribution clearance'
