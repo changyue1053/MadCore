@@ -49,12 +49,14 @@ class TLSFixture:
             key = Path(self._directory) / 'key.pem'
             # Pre-create with private permissions so openssl never creates a readable key.
             key.touch(mode=0o600)
+            print("FIXTURE_STAGE_CERTIFICATE_GENERATION", flush=True)
             subprocess.run([
                 'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
                 '-keyout', str(key), '-out', str(self.certpath), '-days', '1',
                 '-subj', '/CN=MadCore ephemeral loopback test',
                 '-addext', 'subjectAltName=IP:127.0.0.1,IP:10.0.2.2',
             ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            print("FIXTURE_STAGE_CERTIFICATE_READY", flush=True)
             key.chmod(0o600)
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -100,6 +102,7 @@ class TLSFixture:
             self._thread = threading.Thread(target=self._server.serve_forever,
                                             kwargs={'poll_interval': 0.05}, daemon=True)
             self._thread.start()
+            print("FIXTURE_STAGE_TLS_LISTENING", flush=True)
             with self._lock:
                 self._hits = 0
             return self

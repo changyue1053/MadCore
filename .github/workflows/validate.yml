@@ -74,7 +74,11 @@ jobs:
           python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/android-http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT
-          curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
+          if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok; then
+            if kill -0 "$fixture" 2>/dev/null; then echo 'Fixture process alive but not ready'; else echo 'Fixture process exited before readiness'; fi
+            tail -n 80 "$RUNNER_TEMP/android-http-fixture.log"
+            exit 1
+          fi
           ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" :app:assembleDebug :app:pixel2api30DebugAndroidTest
           python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"
   ios:
@@ -116,7 +120,11 @@ jobs:
           python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
           fixture=$!
           trap 'kill "$fixture" || true' EXIT
-          curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
+          if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok; then
+            if kill -0 "$fixture" 2>/dev/null; then echo 'Fixture process alive but not ready'; else echo 'Fixture process exited before readiness'; fi
+            tail -n 80 "$RUNNER_TEMP/http-fixture.log"
+            exit 1
+          fi
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test :core-storage:iosSimulatorArm64Test :core-lifecycle:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
           python3 tools/check_ios_storage_results.py

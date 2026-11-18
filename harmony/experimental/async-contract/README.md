@@ -29,3 +29,19 @@ callback, cancel platform work, or implement a timeout clock.
 
 Until those gates pass, use the independent ArkTS RCP/Preferences APIs. The
 experiment does not change production behavior or remove any delivery blocker.
+
+## Abstract reference/dispatch slice
+
+`reference_dispatch.h` layers a caller-supplied retain/release/enqueue/complete
+adapter over tokens. Host fakes allocate real heap references under sanitizers.
+Tests inject retain failure, queue rejection, callback failure, capacity rejection,
+duplicate terminal delivery and callback-triggered reentrant close. Successful
+retains are balanced; ownership detaches before callbacks. Close releases pending
+references without invoking user callbacks.
+
+This is still not a NAPI adapter: the scheduler contract requires no inline
+completion and no retained work after enqueue failure. Release must not reenter.
+A real scheduler must stop/drain before the dispatcher is destroyed; ignoring
+late tokens while the dispatcher lives does NOT prevent use-after-free after it
+is freed. These conditions are integration obligations, not verified platform
+behavior. There is no cross-thread access, payload transfer or Kotlin StableRef.

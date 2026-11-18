@@ -76,6 +76,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--tls', action='store_true')
     args = parser.parse_args()
+    print("FIXTURE_STAGE_TLS_START" if args.tls else "FIXTURE_STAGE_HTTP_ONLY", flush=True)
     with TLSFixture() if args.tls else nullcontext() as active_tls:
         tls_fixture = active_tls
-        ThreadingHTTPServer(('127.0.0.1', 18082), Handler).serve_forever()
+        server = ThreadingHTTPServer(('127.0.0.1', 18082), Handler)
+        print('FIXTURE_STAGE_LISTENING_18082', flush=True)
+        server.serve_forever()
