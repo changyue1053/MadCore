@@ -7,3 +7,5 @@ export class MadCore {
 }
 
 export { PreferencesStringStore, StorageFailure, StorageException } from './Storage';
+export { RcpHttpClient } from './RcpHttpClient';
+export { RcpRequest, RcpLimits, RcpResponse, RcpFailure, RcpTransportException } from './HttpPolicy';

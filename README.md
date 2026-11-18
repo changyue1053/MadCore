@@ -117,7 +117,7 @@ Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主�
 
 pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。`bc93473` 及 `f1ecc55` 已通过实际 HAR/仓外消费/HAP 构建和无 wrapper pnpm 门禁；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
 
-API18 的 Harmony NetworkKit 暂无已确认的禁用重定向参数；官方 maxRedirects 从 API23 才支持。因此不能把自动跟随重定向的适配器冒充现有网络安全契约实现，目前保留宿主注入边界，不以响应后的检查替代发送前拒绝。
+API18 的 NetworkKit 缺少已确认的禁用重定向参数，但不能据此否定整个 HarmonyOS SDK：Remote Communication Kit 从 API11 已提供 autoRedirect=false。新增实验性 RCP 路线见下节；不以响应后的检查替代发送前拒绝。
 
 iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整的数据收集/跟踪政策。禁止借计时 API 做指纹识别或发送设备启动时间；可发送的仅限应用内事件间隔。SDK 不自行上传存储或日志。最终应用、三方依赖和分发流程仍须隐私审查。参考 [Kotlin 官方说明](https://kotlinlang.org/docs/multiplatform/multiplatform-privacy-manifest.html)。
 
@@ -131,3 +131,13 @@ iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整
 `core-lifecycle` 的 `ResourceScope` 接收显式 `CloseableResource`，关闭时先解除全部所有权再逆序清理；普通异常计数并隔离，严重 Throwable 在尝试清理整个批次后重新抛出。重复/重入关闭返回空报告，注册句柄 detach 只转移所有权而不关闭。关闭后注册失败，资源仍归调用方；同实例重复注册会分别关闭，调用方须避免误注册。
 
 这是宿主串行调用的资源管理器，不是线程安全容器、调度器、异步取消或平台生命周期自动绑定。不得用它隐式接管宿主窗口、账号或全局资源。报告不保存资源信息和异常内容。跨语言回调还须宿主遵守相同线程及异常约定。
+
+## 鸿蒙 RCP 网络路线（实验性、待设备验证）
+
+`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求只支持 GET/POST，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应目前返回状态/正文，不完整映射 Kotlin 响应头契约。
+
+上限在复制分块前检查，失败后取消并关闭；迟到回调不重复结算。连接/空闲/传输超时及总等待计时器均设置，原生超时代码只映射为脱敏分类。上限约束 SDK 保留的数据，不保证平台内部缓冲或单次分块分配大小。没有关闭证书或主机名验证。公开错误不包含 URL、头、正文或平台诊断。
+
+主机测试执行原样 ETS 策略经 Node 类型转换后的逻辑，并将适配器模块导入定向到明确标记的假 SDK，以测试超限、超时、重入取消、迟到完成和清理。它们绝不是鸿蒙网络执行证据。Hvigor 还必须用固定 API18 编译真实 Kit 导入与仓外消费者；真机/模拟器仍需验证重定向目标零命中、无效证书拒绝、分块上限及取消。没有接受新工具/镜像协议，也不据此授予 Kit 分发许可。
+
+官方依据：[RCP API](https://developer.huawei.com/consumer/en/doc/harmonyos-references-V13/remote-communication-rcp-V13/)，[准备工作](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-v5/remote-communication-preparations-V5)。

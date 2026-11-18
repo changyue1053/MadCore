@@ -18,6 +18,11 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: python3 tools/check_source_boundary.py
+      - name: Test Harmony HTTP policy and mocked state (not device execution)
+        run: |
+          node --version
+          node --experimental-transform-types tools/test_harmony_http_policy.mjs
+          node --experimental-transform-types tools/test_harmony_rcp_adapter.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
       - name: Consume only published artifacts from outside the checkout
         shell: bash
