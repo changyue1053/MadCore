@@ -48,3 +48,18 @@ operation registry with host ASan/UBSan tests. It establishes only token ownersh
 and terminal-state behavior under serialized event orderings. It is excluded from
 production exports and HAR. No NAPI references, Kotlin handles, async callback
 queue or cross-runtime request path is implemented by this experiment.
+
+## Real async integration stop gate
+
+The abstract adapter must not be swapped for NAPI calls based on compilation
+alone. Before doing so, establish all of the following for the pinned headers and
+runtime: per-environment teardown callback ordering; owner-loop completion
+marshalling; Kotlin thread-entry and lifetime rules; and a shutdown protocol that
+never frees callback state while an accepted platform operation may still call
+back. A watchdog can settle a public operation, but does not prove underlying
+work has stopped or permit freeing its callback pointer. A missing callback can
+otherwise force a choice between a leak and use-after-free. Neither is acceptable.
+
+Current host tests exercise logical ownership, not these runtime guarantees.
+Therefore the experimental adapter remains unbound to NAPI and excluded from
+production, rather than presenting an unsafe pseudo-implementation as progress.

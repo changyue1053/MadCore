@@ -20,6 +20,7 @@ mkdir -p "$HOME"
 export NPM_CONFIG_USERCONFIG="$work/empty.npmrc"
 : > "$NPM_CONFIG_USERCONFIG"
 test -d "$cli/sdk/default"
+python3 "$root/tools/index_tool_terms.py" "$cli" "$root/build/validation/harmony-tool-terms-index.json"
 export DEVECO_SDK_HOME="$cli/sdk"
 nodebin=$(find "$cli" -path '*/bin/node' -type f -print -quit)
 if [[ -n "$nodebin" ]]; then

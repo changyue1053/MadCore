@@ -22,6 +22,7 @@ jobs:
       - run: python3 tools/test_tls_fixture.py
       - run: python3 tools/test_jvm_classpath.py
       - run: python3 tools/test_publication_graph.py
+      - run: python3 tools/test_harmony_binary_inventory.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
       - name: Test experimental async ownership contract (host only)

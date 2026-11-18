@@ -28,3 +28,18 @@ Reference material (reviewed 2026-11-18):
 Until these items are resolved, keep the draft PR/evaluation workflow and do not
 publish binary releases or claim production distribution approval. This review
 identifies evidence gaps; it is not a legal opinion.
+
+## Build evidence collection
+
+The native bridge build now writes `build/validation/harmony-native-inventory.json`:
+SHA256, size, ELF machine, SONAME and DT_NEEDED of the two generated libraries.
+This identifies dynamic dependencies, **not** statically incorporated Kotlin/CPF
+runtime components or a license-complete SBOM. The inventory is printed in CI.
+
+The existing authorized CLI build also writes
+`build/validation/harmony-tool-terms-index.json`, a filename-keyword inventory of
+license/notice/agreement files with hashes, without copying their text. CI prints
+the first 100 matches and total count; the full temporary report is not published
+as a release artifact. This does not accept any new terms. Keyword matching can
+miss terms or include unrelated package licenses and proves no permission. Exact
+relevant version-specific texts must still be reviewed before distribution.

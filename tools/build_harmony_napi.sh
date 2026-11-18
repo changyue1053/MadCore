@@ -31,3 +31,5 @@ grep -nE 'crtFiles|linkerDynamicFlags|ohos_arm64.*=' "$HOME/.konan/kotlin-native
 readelf -h "$lib/libmadcore_napi.so" | grep AArch64
 readelf -d "$lib/libmadcore_napi.so" | grep -E 'NEEDED|SONAME'
 echo 'NAPI bridge linked only; runtime device load still unverified'
+
+python3 "$root/tools/inventory_harmony_binary.py" "$lib" "$root/build/validation/harmony-native-inventory.json"
