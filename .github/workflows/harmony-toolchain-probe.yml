@@ -1,9 +1,7 @@
 name: Inspect Harmony CLI metadata
+# Disabled for automatic PR events after license review. Do not dispatch without owner authorization.
 on:
-  pull_request:
-    paths:
-      - 'tools/probe_harmony_cli.sh'
-      - '.github/workflows/harmony-toolchain-probe.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

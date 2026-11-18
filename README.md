@@ -90,4 +90,6 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 
 `madcore` 增加 ohosArm64 shared library 目标，C ABI v1 仅暴露版本、墙钟毫秒及有 64 KiB 上限的 JSON 对象校验。`harmony/native` 为独立 NAPI 桥源码，直接链接 `libmadcore.so`，不含产品装配、Compose、IM 或动态产品加载。此阶段不是完整 Core 的 ArkTS 映射。C 指针调用方必须提供有效、可读的长度范围；不跨 ABI 持有 Kotlin 对象。
 
-当前 shared library 链接及符号检查待 CI 验证；NAPI 编译、HAR 打包、ArkTS 消费和真机运行尚未通过，不能把源码目录称作可发布 HAR。工具链/SDK 仅用于构建，不随仓库分发。
+`0249ba3` 的 shared library 链接、AArch64/C 导出符号检查及独立 NAPI 桥编译链接已通过云端验证；进一步检查发现工具链留下未解析的 `main`，当前正在以限定导出面和禁止未解析引用的门禁修复。HAR 打包、ArkTS 消费和真机运行尚未通过，不能把源码目录称作可发布 HAR。工具链/SDK 仅用于构建，不随仓库分发。
+
+官方 Linux CLI 5.1.0.840 的只读探测已校验下载包哈希并确认内置 SDK 5.1.0.125/API18、Hvigor 5.18.5。未执行其 SDK/Hvigor，也未提交同意动作；协议审查待所有者决定。此探测不再自动随 PR 运行。工具协议对使用/下载、再分发及 SDK 用途有约束，不把可下载等同于任意使用许可，也不把 API18 编译候选等同于已验证最低运行版本。
