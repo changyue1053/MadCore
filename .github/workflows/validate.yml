@@ -1,7 +1,7 @@
 name: Validate foundation
 on:
   push:
-    branches: [main, 'work/**']
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -37,6 +37,11 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease
+      - name: Verify release AARs exist
+        run: |
+          for module in core-extension core-time core-json core-testkit madcore; do
+            test -s "$module/build/outputs/aar/$module-release.aar"
+          done
   ios:
     runs-on: macos-15
     timeout-minutes: 35
@@ -49,6 +54,16 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: ./gradlew --no-daemon -Pmadcore.target=ios :madcore:assembleMadCoreReleaseXCFramework
+      - name: Verify slices and typecheck a separate Swift consumer
+        shell: bash
+        run: |
+          xc=madcore/build/XCFrameworks/release/MadCore.xcframework
+          test -s "$xc/Info.plist"
+          test -s "$xc/ios-arm64/MadCore.framework/MadCore"
+          test -s "$xc/ios-arm64-simulator/MadCore.framework/MadCore"
+          consumer=$(mktemp -d)
+          printf 'import MadCore\nlet version: String = MadCoreInfo.shared.version\n' > "$consumer/Consumer.swift"
+          xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
   harmony-klib-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 15
