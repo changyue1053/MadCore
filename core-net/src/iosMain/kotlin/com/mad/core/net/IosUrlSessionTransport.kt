@@ -26,6 +26,8 @@ class IosUrlSessionTransport @Throws(IllegalArgumentException::class) constructo
         if (request.bodySize > limits.maxRequestBytes) throw HttpTransportException(HttpFailure.RequestTooLarge)
         val url = NSURL.URLWithString(request.url) ?: throw HttpTransportException(HttpFailure.InvalidRequest)
         if (url.host.isNullOrEmpty() || url.user != null || url.password != null || url.fragment != null) throw HttpTransportException(HttpFailure.InvalidRequest)
+        val port = url.port?.longLongValue
+        if (port != null && port !in 1L..65535L) throw HttpTransportException(HttpFailure.InvalidRequest)
         val idle = minOf(limits.connectTimeoutMillis, limits.readTimeoutMillis) / 1000.0
         val native = NSMutableURLRequest.requestWithURL(url).apply {
             setHTTPMethod(request.method.name)
@@ -76,7 +78,7 @@ private class ResponseCollector(private val maxBytes: Int) : NSObject(), NSURLSe
 
     fun timeout() {
         lock.lock()
-        try { if (!finished) { failure = HttpFailure.Timeout; finished = true } } finally { lock.unlock() }
+        try { if (!finished) { failure = failure ?: HttpFailure.Timeout; finished = true } } finally { lock.unlock() }
     }
 
     @Throws(HttpTransportException::class)

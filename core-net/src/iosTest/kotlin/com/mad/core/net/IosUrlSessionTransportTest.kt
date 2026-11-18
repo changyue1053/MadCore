@@ -40,6 +40,12 @@ class IosUrlSessionTransportTest {
         assertEquals(HttpFailure.Timeout, assertFailsWith<HttpTransportException> {
             offMain { impatient.execute(HttpRequest("$base/slow")) }
         }.failure)
+        assertEquals("hello", execute("/ok").body.decodeToString()) // a timed-out session must not poison the next call
+        for (port in listOf(0, 65536)) {
+            assertEquals(HttpFailure.InvalidRequest, assertFailsWith<HttpTransportException> {
+                offMain { client.execute(HttpRequest("http://127.0.0.1:$port/ok")) }
+            }.failure)
+        }
         assertEquals(HttpFailure.InvalidRequest, assertFailsWith<HttpTransportException> {
             offMain { IosUrlSessionTransport().execute(HttpRequest("$base/ok"), HttpLimits()) }
         }.failure)

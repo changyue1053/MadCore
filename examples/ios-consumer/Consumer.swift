@@ -10,3 +10,8 @@ func consumeConfiguration() throws {
     _ = try config.longValue(key: "timeout")
     _ = try config.doubleValue(key: "missing")
 }
+
+func constructNativeTransport() throws {
+    let transport: HttpTransport = try IosUrlSessionTransport(callTimeoutMillis: 30_000)
+    _ = transport
+}
