@@ -12,7 +12,8 @@
 | core-time | 系统/注入时钟、时钟偏差校正 | core-extension |
 | core-json | MiniJson 解析 | Kotlin 标准库 |
 | core-logging | 结构化日志、级别过滤、敏感记录默认丢弃 | core-time |
-| madcore | 统一消费入口、iOS umbrella 配置 | 上述四个模块 |
+| core-config | 不可变配置、分层覆盖、严格类型读取 | Kotlin 标准库 |
+| madcore | 统一消费入口、iOS umbrella 配置 | 上述五个模块 |
 
 原 Kotlin 源码及测试保持不变，包名保留 `com.mad.core.*`。来源固定在 `SOURCE-PROVENANCE.json`，没有修改源仓库。新构建不依赖原仓库的 build-logic、产品装配或本地绝对路径。
 
@@ -67,3 +68,7 @@ GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `exa
 `StructuredLogger` 通过宿主注入 `LogSink`，默认无操作接收器，不落盘、不上传、不依赖 shellhost 或 UI。所有构建形态默认丢弃敏感记录；只有显式 `FieldPrivacy.Public` 的记录能进入 sink。域/码仅接受短 ASCII 标识符。字段仍由调用方审查，不承诺自动识别个人数据，禁止将凭据或用户内容标记为 Public。不使用弱哈希假装匿名化。普通 sink/clock 异常被隔离，严重 Error 不吞；调用在当前线程进行，宿主负责线程安全及非阻塞。
 
 本模块是独立实现，不是原仓 `core-obs` 的完整复制；暂不包含指标、事件分析、平台日志适配或诊断包。
+
+## 本地配置模型（开发分支）
+
+`ConfigSnapshot` 防御性复制输入，叠加产生新快照，可供多个读者共享。缺失值返回 null，存在但不合法的类型值抛 `ConfigValueException`，不将错误配置静默当成缺失。异常与 `toString` 不输出配置值。快照只存字符串，不是安全凭据容器；不包含账号、产品/BOM、签名协议、远程拉取或持久化。此模块独立实现，不复制原仓带业务协议的完整 `core-config`。

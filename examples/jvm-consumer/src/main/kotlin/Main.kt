@@ -5,6 +5,9 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val config = com.mad.core.config.ConfigSnapshot(mapOf("timeout" to "10"))
+        .overlay(com.mad.core.config.ConfigSnapshot(mapOf("timeout" to "20")))
+    check(config.longValue("timeout") == 20L)
     val logger = com.mad.core.logging.StructuredLogger()
     check(logger.record(com.mad.core.logging.LogLevel.Info, "consumer", "ready",
         privacy = com.mad.core.logging.FieldPrivacy.Public))
