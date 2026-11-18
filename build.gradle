@@ -1,0 +1,54 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' apply false
+    id 'com.android.library' apply false
+}
+
+def target = providers.gradleProperty('madcore.target').getOrElse('jvm')
+if (!(target in ['jvm', 'android', 'ios', 'ohos'])) {
+    throw new GradleException('madcore.target must be jvm, android, ios or ohos')
+}
+subprojects {
+    apply plugin: 'org.jetbrains.kotlin.multiplatform'
+    apply plugin: 'maven-publish'
+    if (target == 'android') apply plugin: 'com.android.library'
+    group = 'com.mad.core'
+    version = '0.1.0-SNAPSHOT'
+    repositories {
+        if (target == 'ohos') maven { url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/') }
+        google()
+        mavenCentral()
+    }
+    kotlin {
+        jvmToolchain(21)
+        jvm()
+        if (target == 'android') androidTarget { publishLibraryVariants('release') }
+        if (target == 'ios') {
+            iosArm64()
+            iosSimulatorArm64()
+        }
+        if (target == 'ohos') {
+            if (!delegate.metaClass.respondsTo(delegate, 'ohosArm64')) {
+                throw new GradleException('The Harmony build requires the pinned CPF Kotlin fork with ohosArm64 support')
+            }
+            ohosArm64()
+        }
+        sourceSets {
+            commonTest.dependencies { implementation kotlin('test') }
+        }
+    }
+    if (target == 'android') {
+        android {
+            namespace = 'com.mad.core.' + project.name.replace('-', '.')
+            compileSdk = 36
+            defaultConfig { minSdk = 24 }
+        }
+    }
+    publishing {
+        repositories {
+            maven {
+                name = 'staging'
+                url = rootProject.layout.buildDirectory.dir('staging-repository')
+            }
+        }
+    }
+}

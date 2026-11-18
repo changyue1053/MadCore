@@ -1,0 +1,56 @@
+{
+  "repository": "changyue1053/mad-repo",
+  "revision": "6a2218cc6bef829ac38b2ca1046add25dc2e7dd0",
+  "files": [
+    {
+      "source": "core/core-extension/src/commonMain/kotlin/com/mad/core/extension/Registries.kt",
+      "destination": "core-extension/src/commonMain/kotlin/com/mad/core/extension/Registries.kt",
+      "git_blob": "23a2298775f37da68120bc7070b8ec50e598561b"
+    },
+    {
+      "source": "core/core-extension/src/commonMain/kotlin/com/mad/core/extension/ServiceAnnotations.kt",
+      "destination": "core-extension/src/commonMain/kotlin/com/mad/core/extension/ServiceAnnotations.kt",
+      "git_blob": "66e72d475a182d403363d36e2db427aa3c529a8e"
+    },
+    {
+      "source": "core/core-extension/src/jvmTest/kotlin/com/mad/core/extension/RegistriesTest.kt",
+      "destination": "core-extension/src/jvmTest/kotlin/com/mad/core/extension/RegistriesTest.kt",
+      "git_blob": "aad62fad6e03205a2154688647f7266a01f4206c"
+    },
+    {
+      "source": "core/core-json/src/commonMain/kotlin/com/mad/core/json/MiniJson.kt",
+      "destination": "core-json/src/commonMain/kotlin/com/mad/core/json/MiniJson.kt",
+      "git_blob": "d7ab5f6e207a919b07d3ff43d7c3da089a2b77a4"
+    },
+    {
+      "source": "core/core-json/src/jvmTest/kotlin/com/mad/core/json/MiniJsonTest.kt",
+      "destination": "core-json/src/jvmTest/kotlin/com/mad/core/json/MiniJsonTest.kt",
+      "git_blob": "15bb09579965d2367c84fce7de79964e43d9a279"
+    },
+    {
+      "source": "core/core-time/src/commonMain/kotlin/com/mad/core/time/Clock.kt",
+      "destination": "core-time/src/commonMain/kotlin/com/mad/core/time/Clock.kt",
+      "git_blob": "487aa443cc9e2bd989260d73e248e9493d5a5942"
+    },
+    {
+      "source": "core/core-time/src/commonMain/kotlin/com/mad/core/time/ClockSkewCorrector.kt",
+      "destination": "core-time/src/commonMain/kotlin/com/mad/core/time/ClockSkewCorrector.kt",
+      "git_blob": "8390ea758f505db3be66f0f629a092a6b2346c67"
+    },
+    {
+      "source": "core/core-time/src/jvmTest/kotlin/com/mad/core/time/ClockRegistryTest.kt",
+      "destination": "core-time/src/jvmTest/kotlin/com/mad/core/time/ClockRegistryTest.kt",
+      "git_blob": "dcbf6f673c76c4f62354692aca87d96351a211e7"
+    },
+    {
+      "source": "core/core-time/src/jvmTest/kotlin/com/mad/core/time/ClockSkewCorrectorTest.kt",
+      "destination": "core-time/src/jvmTest/kotlin/com/mad/core/time/ClockSkewCorrectorTest.kt",
+      "git_blob": "c198b74666e43cc77e16137b86da47cf6226396a"
+    },
+    {
+      "source": "core/core-time/src/jvmTest/kotlin/com/mad/core/time/SystemClockTest.kt",
+      "destination": "core-time/src/jvmTest/kotlin/com/mad/core/time/SystemClockTest.kt",
+      "git_blob": "330dc9b7809c212646b6521e86d5a3620f699cad"
+    }
+  ]
+}
