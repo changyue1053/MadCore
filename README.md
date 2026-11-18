@@ -112,3 +112,9 @@ Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主�
 ### Android 独立运行已验证
 
 `3f46501` 的 [云端运行](https://github.com/changyue1053/MadCore/actions/runs/44258322761) 已通过仓外 Maven 消费、APK 编译及 API30 标准 AOSP x86_64 模拟器真实网络测试。该记录不覆盖本节新加的存储代码；存储行为以之后对应提交 CI 为准。未接受 ATD 专用协议，标准镜像使用 runner 已有 SDK 许可；没有自动同意命令。真机、API24 和真实公网 TLS 尚未验证。
+
+### 鸿蒙构建依赖安全（验证中）
+
+pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。切换是否兼容须看对应 CI；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
+
+API18 的 Harmony NetworkKit 暂无已确认的禁用重定向参数；官方 maxRedirects 从 API23 才支持。因此不能把自动跟随重定向的适配器冒充现有网络安全契约实现，目前保留宿主注入边界，不以响应后的检查替代发送前拒绝。

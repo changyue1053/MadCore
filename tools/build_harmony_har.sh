@@ -14,6 +14,11 @@ printf '%s  %s\n' 1dcefa4741dc289277560b2802040e0c45b433898d8db453d711d5376e0478
 unzip -q "$archive" -d "$work/tools"
 rm "$archive"
 cli="$work/tools/command-line-tools"
+# Isolate package-manager user configuration/cache; no user tokens or shared executable cache.
+export HOME="$work/home"
+mkdir -p "$HOME"
+export NPM_CONFIG_USERCONFIG="$work/empty.npmrc"
+: > "$NPM_CONFIG_USERCONFIG"
 test -d "$cli/sdk/default"
 export DEVECO_SDK_HOME="$cli/sdk"
 nodebin=$(find "$cli" -path '*/bin/node' -type f -print -quit)
@@ -25,6 +30,7 @@ export PATH="$cli/hvigor/bin:$cli/ohpm/bin:$PATH"
 test -x "$cli/hvigor/bin/hvigorw"
 test -x "$cli/ohpm/bin/ohpm"
 node --version
+npm --version
 hvigorw --version
 project="$work/sdk-project"
 mkdir -p "$project"
@@ -94,3 +100,10 @@ find "$app/entry/build" -name '*.hap' -type f | grep .
 mkdir -p "$root/build/harmony"
 cp "$har" "$root/build/harmony/madcore.har"
 echo 'HAR build, separate HAR consumer and unsigned app assembly passed; no Harmony device execution or redistribution clearance'
+
+# Fail rather than silently restoring the vulnerable wrapper-managed pnpm dependency.
+if [[ -d "$HOME/.hvigor" ]] && find "$HOME/.hvigor" -path '*/node_modules/pnpm/package.json' -print -quit | grep -q .; then
+  echo 'Unexpected pnpm installed despite explicit useNpm configuration' >&2
+  exit 1
+fi
+echo 'Hvigor npm mode compatibility passed with isolated HOME and no wrapper pnpm installed'

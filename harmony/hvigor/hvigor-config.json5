@@ -1,1 +1,7 @@
-{ "modelVersion": "5.0.0", "dependencies": {} }
+{
+  "modelVersion": "5.0.0",
+  "dependencies": {},
+  "properties": {
+    "hvigor.dependency.useNpm": true
+  }
+}
