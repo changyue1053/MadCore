@@ -5,3 +5,5 @@ export class MadCore {
   static epochMillis(): number { return nativeCore.epochMillis(); }
   static isJsonObject(input: string): boolean { return nativeCore.isJsonObject(input); }
 }
+
+export { PreferencesStringStore, StorageFailure, StorageException } from './Storage';

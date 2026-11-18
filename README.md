@@ -105,7 +105,7 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 
 `core-storage` 提供 `StringStore`、单线程 `MemoryStringStore`、Android `SharedPreferencesStringStore` 和 iOS `UserDefaultsStringStore`。仅用于非敏感偏好：键为 1..128 字符的小写 ASCII 标识符，值限 64 KiB UTF-8；空字符串不等于缺失。无枚举/清空全部、事务、加密、多进程一致性或崩溃持久性承诺。错误不包含键值或平台诊断。宿主提供独立文件/suite，并管理备份策略与线程。
 
-Android 使用同步 commit，失败返回 Backend，但平台内存可能已经变化，失败不等于回滚。iOS 遵循 UserDefaults 异步写盘语义，不调用 Apple 不建议使用的 synchronize；只确认内存更新，注册默认值可能在删除后重新出现。测试重新构造适配器，不冒充进程重启或掉电恢复验证。鸿蒙目前只有公共契约/内存实现，尚未加入 ArkTS preferences 适配及跨语言映射。
+Android 使用同步 commit，失败返回 Backend，但平台内存可能已经变化，失败不等于回滚。iOS 遵循 UserDefaults 异步写盘语义，不调用 Apple 不建议使用的 synchronize；只确认内存更新，注册默认值可能在删除后重新出现。测试重新构造适配器，不冒充进程重启或掉电恢复验证。鸿蒙 Kotlin 侧有公共契约/内存实现；另有独立 ArkTS `PreferencesStringStore` 接受宿主已有 Preferences，get/put/remove 仅操作缓存，flush() 异步等待平台刷盘确认。两次默认值探测区别实际空串和错误存储类型，宿主必须串行化所有访问。该 ArkTS 类不是 Kotlin 接口的跨语言实现；当前仅有 HAR/消费者编译门禁，尚无鸿蒙存储设备执行证据。
 
 Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主调用的包装 API，对应 C56D.1 的候选用途。发布前必须将该声明正确打包，并审查时间等其他 API 的理由；当前不能据此宣称 App Store 合规。参见 [Apple 官方理由说明](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。
 
