@@ -51,7 +51,12 @@ assert manifests, 'HAR package manifest missing'
 # not a guessed source filename; the external consumer below verifies actual consumption.
 manifest=min(manifests,key=lambda n:n.count('/'))
 meta=json.loads(data[manifest]);print('HAR package metadata:',meta)
-entry=meta.get('main');assert isinstance(entry,str) and entry, 'HAR main entry absent'
+bytecode=meta.get('metadata',{}).get('byteCodeHar') is True
+entry=meta.get('types') if bytecode else meta.get('main')
+assert isinstance(entry,str) and entry, 'HAR declaration/main entry absent'
+if bytecode:
+    abc=posixpath.join(posixpath.dirname(manifest),'ets/modules.abc')
+    assert data.get(abc), 'Bytecode HAR implementation is missing'
 resolved=posixpath.normpath(posixpath.join(posixpath.dirname(manifest),entry))
 assert resolved in data, 'HAR declared main entry missing: '+resolved
 print('HAR manifest entry and both independent native libraries verified')
