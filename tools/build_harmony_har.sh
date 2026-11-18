@@ -35,15 +35,26 @@ cp "$root/madcore/build/bin/ohosArm64/releaseShared/"libmadcore{,_napi}.so "$pro
 har=$(find "$project/madcore/build" -name '*.har' -type f -print -quit)
 test -n "$har"
 python3 - "$har" <<'PY'
-import sys,tarfile,zipfile
+import sys,tarfile,zipfile,json,posixpath
 p=sys.argv[1]
 if zipfile.is_zipfile(p):
-    with zipfile.ZipFile(p) as a: names=a.namelist()
+    with zipfile.ZipFile(p) as a: data={n:a.read(n) for n in a.namelist() if not n.endswith('/')}
 else:
-    with tarfile.open(p) as a: names=a.getnames()
-for expected in ('libmadcore.so','libmadcore_napi.so','Index.ets'):
+    with tarfile.open(p) as a: data={m.name:a.extractfile(m).read() for m in a.getmembers() if m.isfile()}
+names=list(data)
+print('HAR inventory:', names)
+for expected in ('libmadcore.so','libmadcore_napi.so'):
     assert any(n.endswith('/'+expected) or n==expected for n in names), expected+' missing from HAR'
-print('HAR contains ArkTS entry and both independent native libraries')
+manifests=[n for n in names if n.endswith('oh-package.json5') and 'src/main/cpp/' not in n]
+assert manifests, 'HAR package manifest missing'
+# The compiler may transform Index.ets to a declaration/compiled entry. Check the manifest,
+# not a guessed source filename; the external consumer below verifies actual consumption.
+manifest=min(manifests,key=lambda n:n.count('/'))
+meta=json.loads(data[manifest]);print('HAR package metadata:',meta)
+entry=meta.get('main');assert isinstance(entry,str) and entry, 'HAR main entry absent'
+resolved=posixpath.normpath(posixpath.join(posixpath.dirname(manifest),entry))
+assert resolved in data, 'HAR declared main entry missing: '+resolved
+print('HAR manifest entry and both independent native libraries verified')
 PY
 # Consume only the built HAR in a second project outside the repository/source tree.
 consumer="$work/consumer"
@@ -63,6 +74,18 @@ b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='con
 PY
 (cd "$consumer" && ohpm install --all && hvigorw assembleHar --mode module -p module=consumer@default -p product=default -p buildMode=release --no-daemon)
 find "$consumer/consumer/build" -name '*.har' -type f | grep .
+# Also assemble an independent unsigned application, still using only the HAR.
+app="$work/app-consumer"
+cp -R "$root/examples/harmony-consumer" "$app"
+mkdir -p "$app/libs"
+cp "$har" "$app/libs/madcore.har"
+# Test app supplies its SDK C++ runtime. This is ephemeral validation, not a published package.
+cxx=$(find "$cli/sdk/default/openharmony/native" -path '*/aarch64-linux-ohos/*' -name libc++_shared.so -type f -print -quit)
+test -n "$cxx"
+mkdir -p "$app/entry/libs/arm64-v8a"
+cp "$cxx" "$app/entry/libs/arm64-v8a/"
+(cd "$app" && ohpm install --all && hvigorw assembleHap --mode module -p module=entry@default -p product=default -p buildMode=debug --no-daemon)
+find "$app/entry/build" -name '*.hap' -type f | grep .
 mkdir -p "$root/build/harmony"
 cp "$har" "$root/build/harmony/madcore.har"
-echo 'HAR build and separate HAR consumer compilation passed; no Harmony device execution or redistribution clearance'
+echo 'HAR build, separate HAR consumer and unsigned app assembly passed; no Harmony device execution or redistribution clearance'

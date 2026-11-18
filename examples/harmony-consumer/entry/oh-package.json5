@@ -1,0 +1,8 @@
+{
+  "name": "entry",
+  "version": "0.1.0",
+  "description": "External HAR-only validation consumer",
+  "dependencies": {
+    "madcore": "file:../libs/madcore.har"
+  }
+}
