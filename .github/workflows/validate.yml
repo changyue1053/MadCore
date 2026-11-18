@@ -78,7 +78,7 @@ jobs:
           ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test
           python3 tools/check_ios_http_results.py
   harmony-klib-probe:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -88,6 +88,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Install fork linker runtime dependency
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2
       - name: Check pinned fork marker is reachable (no credentials)
         run: curl --fail --location --connect-timeout 20 --max-time 60 --output /dev/null 'https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlin/multiplatform/org.jetbrains.kotlin.multiplatform.gradle.plugin/2.2.21-1.0.0/org.jetbrains.kotlin.multiplatform.gradle.plugin-2.2.21-1.0.0.pom'
       - name: Probe fork toolchain and compile only (not HAR or device support)
