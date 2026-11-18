@@ -14,3 +14,4 @@ pluginManagement {
 rootProject.name = 'MadCore'
 include 'core-extension', 'core-time', 'core-json'
 include 'madcore'
+include 'core-testkit'

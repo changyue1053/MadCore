@@ -1,0 +1,14 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.2.21'
+    id 'application'
+}
+repositories {
+    maven { url = uri(providers.gradleProperty('madcoreRepository').get()) }
+    mavenCentral()
+}
+kotlin { jvmToolchain(21) }
+dependencies {
+    implementation 'com.mad.core:madcore:0.1.0-SNAPSHOT'
+    implementation 'com.mad.core:core-testkit:0.1.0-SNAPSHOT'
+}
+application { mainClass = 'MainKt' }

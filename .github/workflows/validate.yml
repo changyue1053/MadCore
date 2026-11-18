@@ -1,0 +1,27 @@
+name: Validate foundation
+on:
+  push:
+    branches: [main, 'work/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  jvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: python3 tools/check_source_boundary.py
+      - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
+      - name: Consume only published artifacts from outside the checkout
+        shell: bash
+        run: |
+          consumer=$(mktemp -d)
+          cp -R examples/jvm-consumer/. "$consumer/"
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" run

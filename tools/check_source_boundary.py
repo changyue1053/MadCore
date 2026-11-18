@@ -14,7 +14,7 @@ for entry in manifest['files']:
     digest = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
     if digest != entry['git_blob']:
         errors.append('source changed: ' + entry['destination'])
-allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.')
+allowed = ('kotlin.', 'com.mad.core.extension.', 'com.mad.core.time.', 'com.mad.core.json.', 'com.mad.core.testkit.')
 for path in ROOT.glob('core-*/src/**/*.kt'):
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
         if not dependency.startswith(allowed):
