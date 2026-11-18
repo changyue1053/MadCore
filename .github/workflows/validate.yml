@@ -67,7 +67,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - run: ./gradlew --no-daemon -Pmadcore.target=ios :madcore:assembleMadCoreReleaseXCFramework
+      - run: bash tools/build_ios_xcframework.sh
       - name: Verify slices and typecheck a separate Swift consumer
         shell: bash
         run: |

@@ -107,7 +107,7 @@ CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST、�
 
 Android 使用同步 commit，失败返回 Backend，但平台内存可能已经变化，失败不等于回滚。iOS 遵循 UserDefaults 异步写盘语义，不调用 Apple 不建议使用的 synchronize；只确认内存更新，注册默认值可能在删除后重新出现。测试重新构造适配器，不冒充进程重启或掉电恢复验证。鸿蒙 Kotlin 侧有公共契约/内存实现；另有独立 ArkTS `PreferencesStringStore` 接受宿主已有 Preferences，get/put/remove 仅操作缓存，flush() 异步等待平台刷盘确认。两次默认值探测区别实际空串和错误存储类型，宿主必须串行化所有访问。该 ArkTS 类不是 Kotlin 接口的跨语言实现；当前仅有 HAR/消费者编译门禁，尚无鸿蒙存储设备执行证据。
 
-Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主调用的包装 API，对应 C56D.1 的候选用途。发布前必须将该声明正确打包，并审查时间等其他 API 的理由；当前不能据此宣称 App Store 合规。参见 [Apple 官方理由说明](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。
+Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主调用的包装 API，对应 C56D.1 的候选用途。使用 `bash tools/build_ios_xcframework.sh` 构建的开发 XCFramework 会将 UserDefaults 包装理由 C56D.1 与应用内间隔/计时理由 35F9.1 写入每个 framework slice；仅直接运行原始 Gradle assemble 不包含这一步。CI 读取每份 plist 核验。发布前仍须审查 Kotlin/runtime 全部 required-reason API 和宿主实际用途，不能据此宣称 App Store 合规。参见 [Apple 官方理由说明](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。
 
 ### Android 独立运行已验证
 
@@ -118,3 +118,5 @@ Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主�
 pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。切换是否兼容须看对应 CI；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
 
 API18 的 Harmony NetworkKit 暂无已确认的禁用重定向参数；官方 maxRedirects 从 API23 才支持。因此不能把自动跟随重定向的适配器冒充现有网络安全契约实现，目前保留宿主注入边界，不以响应后的检查替代发送前拒绝。
+
+iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整的数据收集/跟踪政策。禁止借计时 API 做指纹识别或发送设备启动时间；可发送的仅限应用内事件间隔。SDK 不自行上传存储或日志。最终应用、三方依赖和分发流程仍须隐私审查。参考 [Kotlin 官方说明](https://kotlinlang.org/docs/multiplatform/multiplatform-privacy-manifest.html)。
