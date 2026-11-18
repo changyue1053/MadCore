@@ -11,7 +11,8 @@
 | core-extension | 服务注册、扩展注册和注解 | Kotlin 标准库 |
 | core-time | 系统/注入时钟、时钟偏差校正 | core-extension |
 | core-json | MiniJson 解析 | Kotlin 标准库 |
-| madcore | 统一消费入口、iOS umbrella 配置 | 上述三个模块 |
+| core-logging | 结构化日志、级别过滤、敏感记录默认丢弃 | core-time |
+| madcore | 统一消费入口、iOS umbrella 配置 | 上述四个模块 |
 
 原 Kotlin 源码及测试保持不变，包名保留 `com.mad.core.*`。来源固定在 `SOURCE-PROVENANCE.json`，没有修改源仓库。新构建不依赖原仓库的 build-logic、产品装配或本地绝对路径。
 
@@ -60,3 +61,9 @@ python3 tools/check_source_boundary.py
 GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `examples/jvm-consumer` 复制到仓库外，只通过 Maven 制品坐标消费。工作流定义不是通过证明，以对应提交的运行结果为准。该验证不覆盖三端 App、Swift 导出或鸿蒙 HAR。
 
 云端验证记录：https://github.com/changyue1053/MadCore/actions/runs/44239436313 。其中鸿蒙任务独立判定，其他任务通过不代表鸿蒙通过。
+
+## 结构化日志（开发分支）
+
+`StructuredLogger` 通过宿主注入 `LogSink`，默认无操作接收器，不落盘、不上传、不依赖 shellhost 或 UI。所有构建形态默认丢弃敏感记录；只有显式 `FieldPrivacy.Public` 的记录能进入 sink。域/码仅接受短 ASCII 标识符。字段仍由调用方审查，不承诺自动识别个人数据，禁止将凭据或用户内容标记为 Public。不使用弱哈希假装匿名化。普通 sink/clock 异常被隔离，严重 Error 不吞；调用在当前线程进行，宿主负责线程安全及非阻塞。
+
+本模块是独立实现，不是原仓 `core-obs` 的完整复制；暂不包含指标、事件分析、平台日志适配或诊断包。

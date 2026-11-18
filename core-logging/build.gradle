@@ -1,0 +1,6 @@
+kotlin {
+    sourceSets {
+        commonMain.dependencies { api project(':core-time') }
+        commonTest.dependencies { implementation project(':core-testkit') }
+    }
+}

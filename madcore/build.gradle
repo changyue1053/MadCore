@@ -6,6 +6,7 @@ kotlin {
             api project(':core-extension')
             api project(':core-time')
             api project(':core-json')
+            api project(':core-logging')
         }
     }
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
@@ -17,6 +18,7 @@ kotlin {
                 export project(':core-extension')
                 export project(':core-time')
                 export project(':core-json')
+                export project(':core-logging')
                 framework.add(it)
             }
         }

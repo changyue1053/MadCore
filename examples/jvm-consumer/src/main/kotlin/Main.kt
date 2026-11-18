@@ -5,6 +5,10 @@ import com.mad.core.time.ClockKey
 import com.mad.core.time.clock
 
 fun main() {
+    val logger = com.mad.core.logging.StructuredLogger()
+    check(logger.record(com.mad.core.logging.LogLevel.Info, "consumer", "ready",
+        privacy = com.mad.core.logging.FieldPrivacy.Public))
+    check(!logger.record(com.mad.core.logging.LogLevel.Info, "consumer", "sensitive"))
     val services = ServiceRegistry()
     val clock = ManualClock(100)
     services.put(ClockKey, clock)

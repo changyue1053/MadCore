@@ -39,7 +39,7 @@ jobs:
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease
       - name: Verify release AARs exist
         run: |
-          for module in core-extension core-time core-json core-testkit madcore; do
+          for module in core-extension core-time core-json core-testkit core-logging madcore; do
             test -s "$module/build/outputs/aar/$module-release.aar"
           done
   ios:
