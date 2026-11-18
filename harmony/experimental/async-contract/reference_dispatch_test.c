@@ -76,5 +76,18 @@ int main(void) {
     assert(!mc_dispatch_submit(&d, &input));
     mc_dispatch_close(&d);
     assert(h.retained == h.released);
+    /* Queue accepts but delivers nothing: explicit host timeout wins; a late
+     * completion cannot double-release. No real timer or platform queue implied. */
+    setup(&d, &h);
+    token = mc_dispatch_submit(&d, &input);
+    assert(token && h.queued == 1 && h.delivered == 0);
+    assert(mc_dispatch_finish(&d, token, 1));
+    assert(!mc_dispatch_finish(&d, token, 0));
+    assert(h.retained == h.released && h.delivered == 1);
+    setup(&d, &h);
+    token = mc_dispatch_submit(&d, &input);
+    mc_dispatch_close(&d); /* accepted work with missing callback on shutdown */
+    assert(!mc_dispatch_finish(&d, token, 0));
+    assert(h.retained == h.released && h.delivered == 0);
     puts("Abstract reference/dispatch error injection passed; not NAPI execution");
 }

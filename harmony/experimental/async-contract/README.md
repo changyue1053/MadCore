@@ -45,3 +45,11 @@ A real scheduler must stop/drain before the dispatcher is destroyed; ignoring
 late tokens while the dispatcher lives does NOT prevent use-after-free after it
 is freed. These conditions are integration obligations, not verified platform
 behavior. There is no cross-thread access, payload transfer or Kotlin StableRef.
+
+Accepted enqueue with a permanently missing completion is tested through explicit
+host-timeout termination and close; a late result must lose. The kernel has no
+clock and never interprets enqueue success as completion. No platform guarantee
+about `napi_queue_async_work` or cancellation is assumed. Real adapters need an
+independent owner-thread watchdog and a safe scheduler drain strategy, including
+callbacks that never arrive. Active callbacks must not destroy/reinitialize the
+dispatcher; its lifetime extends until all calls and scheduler references drain.
