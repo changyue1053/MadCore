@@ -16,6 +16,8 @@ if grep -qx main <<< "$undefined"; then
   exit 1
 fi
 readelf -d "$lib/libmadcore.so" | grep -E 'NEEDED|SONAME'
+readelf --dyn-syms --wide "$lib/libmadcore.so" | grep OH_HiDebug || true
+readelf --relocs --wide "$lib/libmadcore.so" | grep OH_HiDebug || true
 grep -nE 'crtFiles|linkerDynamicFlags|ohos_arm64.*=' "$HOME/.konan/kotlin-native-prebuilt-linux-x86_64-2.2.21-1.0.0/konan/konan.properties" | tail -80
 "$llvm/bin/clang" --target=aarch64-linux-ohos --sysroot="$sysroot" \
   -std=c11 -fPIC -shared -Wall -Wextra -Werror \

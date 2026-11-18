@@ -33,8 +33,9 @@ kotlin {
             // Hide compiler runtime/C adapter internals and discard executable startup roots.
             // A shared SDK must not retain Scrt1.o's unresolved `main` dependency.
             def exportsMap = rootProject.file('harmony/native/madcore.exports.map')
-            linkerOpts('--version-script=' + exportsMap.absolutePath, '--no-undefined')
-            linkTaskProvider.configure { inputs.file(exportsMap) }
+            def startupScript = rootProject.file('harmony/native/shared-library-startup.ld')
+            linkerOpts('--version-script=' + exportsMap.absolutePath, '--script=' + startupScript.absolutePath, '--no-undefined')
+            linkTaskProvider.configure { inputs.files(exportsMap, startupScript) }
         }
     }
 
