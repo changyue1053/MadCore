@@ -12,9 +12,14 @@ adapters; SDK code must not know product IDs, backend endpoints, accounts or UI.
 - iOS: integrate the built MadCore XCFramework and its privacy-manifest resource.
   The independent Swift/UIKit example demonstrates archive-only consumption.
 - Harmony: integrate the built `madcore.har`; the standalone example consumes only
-  that HAR. Host native-runtime requirements and device verification remain open.
+  that HAR. Native runtime packaging and API23 emulator execution are verified for
+  the recorded setup; API18 runtime, physical devices and redistribution remain open.
 - Test helpers are opt-in; do not add core-testkit to production by default.
 - These are development artifacts, not publicly released package coordinates.
+- Start from source and build into a local staging repository/framework/HAR. The
+  green baseline CI run 44463243979 has **zero downloadable artifacts**; it is
+  build/test evidence, not an SDK download. Private test HAPs are not releases.
+- Current evidence and finite gaps are maintained in [DELIVERY_GATES](DELIVERY_GATES.md).
 
 ## Host-owned composition
 
@@ -36,16 +41,24 @@ accident.
 2. Confirm required platform permissions and privacy resources.
 3. Run config, storage roundtrip, HTTP error/limits and resource-close smoke tests.
 4. Keep Android/iOS blocking HTTP off the UI thread; Harmony RCP is async ArkTS.
-5. Treat compile-only platform results as compile-only, especially Harmony.
+5. Separate compile and runtime evidence: Harmony API18 compilation is distinct
+   from the recorded API23 emulator run and is not a minimum-runtime promise.
 6. Reject duplicate SDK classes in JVM dependency graphs. This protects new apps
    from conflicting dependencies; it is not an old-code compatibility check.
 7. Review the public API status and platform-specific limits before release.
 
 ## Remaining platform work
 
-- Harmony native load, real RCP TLS/redirect/cancellation and persistent storage
-  require a real runtime. Kotlin/ArkTS asynchronous object bridging remains a
-  separately gated design, not an implemented feature.
+- Harmony API23 runtime covers native smoke, independent ArkTS RCP/Preferences
+  and dual-HAR identity/shared mutation. Preferences restart checks are real, but
+  the ArkTS adapter is not a persistent implementation of Kotlin StringStore.
+- An opt-in copied Kotlin→RCP→Kotlin bridge is implemented and runtime-tested;
+  default builds exclude it. Keep its owner-loop and bounded-capacity rules and
+  `isDrained=false` limitation. Eight-slot recovery proves Promise admission quota
+  reuse, not native resource drain.
+- Worker teardown reclaimed four C sessions with queued, undispatched requests.
+  This does not establish destruction safety during active RCP callbacks. See
+  [experiment evidence](HARMONY_ASYNC_HTTP_EXPERIMENT.md) before opting in.
 - Build/release licensing and explicit publication approval remain open.
 - API stability and broader method/cancellation needs should be driven by new-app
   use cases, not by matching a previous repository's surface area.

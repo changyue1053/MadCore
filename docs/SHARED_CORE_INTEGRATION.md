@@ -2,6 +2,9 @@
 
 The intended composition is one Core dependency, referenced by independently
 built upper SDKs and the host. Do not embed a private copy of Core into each SDK.
+Current baseline and remaining gates: [DELIVERY_GATES](DELIVERY_GATES.md).
+Build evaluation artifacts from source/local staging; green CI has no downloadable
+SDK artifacts and does not constitute package publication.
 
 ## Artifact-level probes
 
@@ -32,8 +35,14 @@ using a project-level override to the local built Core HAR, then deletes the upp
 Core HAR in an unsigned HAP. A compiled page-level function passes the shared
 NamespacedStringStore type from Alpha to Beta. Archive checks require exactly one
 libmadcore.so/libmadcore_napi.so pair and no nested/native payloads in the upper
-HARs. These are compile/package checks only: no Harmony runtime object identity,
-loader behavior, persistence or remote package publication is established. The final project override resolves both upper dependencies to its one local Core HAR.
+HARs. In addition to compile/package checks, the separate recorded Pura90/API23
+runtime probe invoked the composition helper and passed object/type identity,
+cross-upper mutation and removal with one Core. This does not prove API18 runtime,
+physical devices, arbitrary loader/version combinations or remote package metadata.
+The final project override resolves both upper dependencies to its one local Core
+HAR. Preferences persistence is a separate ArkTS runtime test, not evidence that
+the two upper HARs implement Kotlin persistent storage. See
+[runtime evidence](HARMONY_RUNTIME_EVIDENCE.md).
 Exact-commit CI determines whether these probes actually passed.
 
 The override mechanism follows [Huawei OHPM documentation](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-oh-package-json5-V5/). Development-only dependencies are not used for imported runtime Core types.
@@ -50,3 +59,13 @@ versions. Only Core storage and arm64 Simulator are covered by this probe.
 
 The architecture follows [Kotlin's multi-module configuration guidance](https://kotlinlang.org/docs/multiplatform/multiplatform-project-configuration.html).
 Exact-commit CI still determines whether build and execution passed.
+
+## Experimental bridge is a separate opt-in surface
+
+The real copied Kotlin/RCP bridge and queued-Worker teardown tests do not enlarge
+the default shared-Core composition claim. They validate bounded copied delivery,
+ID isolation, Promise quota recovery and network-free Worker C-registry cleanup
+in the recorded API23 setup. They do not prove active RCP teardown/native drain or
+a Kotlin-to-Preferences persistent adapter. No experimental native library should
+be silently included in a default preview artifact. See
+[async experiment](HARMONY_ASYNC_HTTP_EXPERIMENT.md).

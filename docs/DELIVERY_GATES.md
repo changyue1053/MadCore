@@ -8,10 +8,12 @@ required merely to make this foundation useful.
 
 ## Current evidence and supported scope
 
-Last verified four-job baseline: **a0b32ad2811018d694534036c434062e38658ad4**,
-[CI 44460946700](https://github.com/changyue1053/MadCore/actions/runs/44460946700),
+Last verified four-job baseline: **6d5b5c6940d9d026ed68020c23aec5bcb65998a6**,
+[CI 44463243979](https://github.com/changyue1053/MadCore/actions/runs/44463243979),
 Android/iOS/JVM/Harmony all successful. Later commits require their own CI result;
-this baseline does not claim a newer head has already passed.
+this baseline does not claim a newer head has already passed. Its artifact listing
+contains zero downloadable files. Handoff is source plus local build instructions,
+not an attached/published SDK binary. Existing private HAPs are evaluation outputs.
 
 - JVM: common behavior, published closure, artifact-only host and two upper JARs.
 - Android: published AARs, two independent upper AARs and API30 emulator app behavior.
