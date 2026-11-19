@@ -32,11 +32,15 @@ kotlin {
         }
     }
     if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos') {
+        if (providers.gradleProperty('madcore.copiedHttp').getOrElse('false') == 'true') {
+            sourceSets.getByName('ohosArm64Main').kotlin.srcDir('src/ohosCopiedHttp/kotlin')
+        }
         targets.getByName('ohosArm64').binaries.sharedLib {
             baseName = 'madcore'
             // Hide compiler runtime/C adapter internals and discard executable startup roots.
             // A shared SDK must not retain Scrt1.o's unresolved `main` dependency.
-            def exportsMap = rootProject.file('harmony/native/madcore.exports.map')
+            def copiedHttp = providers.gradleProperty('madcore.copiedHttp').getOrElse('false') == 'true'
+            def exportsMap = rootProject.file(copiedHttp ? 'harmony/experimental/copied-http/exports.map' : 'harmony/native/madcore.exports.map')
             def startupScript = rootProject.file('harmony/native/shared-library-startup.ld')
             linkerOpts('--version-script=' + exportsMap.absolutePath, '--script=' + startupScript.absolutePath, '--no-undefined')
             linkTaskProvider.configure { inputs.files(exportsMap, startupScript) }

@@ -1,0 +1,3 @@
+headers = copied_http.h
+package = com.mad.core.net.copied
+staticLibraries = libmadcore_copied_http.a

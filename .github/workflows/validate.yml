@@ -27,6 +27,8 @@ jobs:
       - run: python3 tools/test_harmony_composition.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
+      - name: Test opt-in copied HTTP registry (host only)
+        run: bash harmony/experimental/copied-http/test_host.sh
       - name: Test experimental async ownership contract (host only)
         run: bash tools/test_async_contract.sh
       - name: Test native bridge memory/error paths with host stubs (not device execution)
@@ -196,3 +198,12 @@ jobs:
       - name: Build HAR and separate ArkTS consumer with authorized official CLI
         timeout-minutes: 20
         run: bash tools/build_harmony_har.sh
+
+      - name: Link opt-in C-owned copied mailbox component (not RCP integration)
+        run: |
+          so=madcore/build/bin/ohosArm64/releaseShared/libmadcore.so
+          if readelf --dyn-syms --wide "$so" | grep -E 'mc_http_|madcore_copied_http'; then
+            echo 'Experimental API leaked into default build' >&2; exit 1
+          fi
+          ./gradlew --no-daemon -Pmadcore.target=ohos -Pmadcore.copiedHttp=true :madcore:linkReleaseSharedOhosArm64
+          python3 tools/check_copied_http_link.py "$so"

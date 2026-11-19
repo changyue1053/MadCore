@@ -1,19 +1,26 @@
-kotlin {
-    sourceSets {
-        jvmMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
-        if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
-            androidMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+// Experimental opt-in: not part of default production publications.
+if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos' &&
+    providers.gradleProperty('madcore.copiedHttp').getOrElse('false') == 'true') {
+    def nativeBuild = tasks.register('prepareCopiedHttpNative', Exec) {
+        // A small existing target materializes the exact pinned compiler/sysroot first.
+        dependsOn ':core-time:compileKotlinOhosArm64'
+        commandLine 'bash', rootProject.file('tools/build_copied_http_native.sh').absolutePath
+        inputs.files(rootProject.file('harmony/experimental/copied-http/copied_http.c'),
+            rootProject.file('harmony/experimental/copied-http/copied_http.h'),
+            rootProject.file('tools/build_copied_http_native.sh'))
+        outputs.file(layout.buildDirectory.file('copied-http/libmadcore_copied_http.a'))
+    }
+    kotlin {
+        sourceSets.getByName('ohosArm64Main').kotlin.srcDir('src/ohosCopiedHttp/kotlin')
+        targets.getByName('ohosArm64').compilations.getByName('main').cinterops.create('copiedHttp') {
+            defFile project.file('src/nativeInterop/cinterop/copiedHttp.def')
+            includeDirs rootProject.file('harmony/experimental/copied-http')
+            extraOpts '-libraryPath', layout.buildDirectory.dir('copied-http').get().asFile.absolutePath
         }
     }
-}
-
-if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
-    kotlin.targets.getByName('iosSimulatorArm64').testRuns.getByName('test').executionTask.configure {
-        def simulator = providers.environmentVariable('MADCORE_IOS_SIMULATOR_UDID').orNull
-        if (simulator != null) {
-            device.set(simulator)
-            standalone.set(false) // CI explicitly boots the full simulator for Foundation networking.
-        }
-        timeout.set(java.time.Duration.ofMinutes(5))
+    tasks.named('cinteropCopiedHttpOhosArm64').configure {
+        dependsOn nativeBuild
+        inputs.file(layout.buildDirectory.file('copied-http/libmadcore_copied_http.a'))
+        inputs.file(rootProject.file('harmony/experimental/copied-http/copied_http.h'))
     }
 }
