@@ -120,3 +120,35 @@ server connections, physical-resource reclamation, environment destruction or
 native callback drain. RCP listener ordering was not asserted. `isDrained` stays
 false. Official cancel/close/Promise documentation supplies no native teardown
 ordering guarantee; runtime traces alone cannot supply that guarantee either.
+
+## Actual Worker environment destruction, network-free
+
+A further opt-in harness uses the official Worker/environment-cleanup route, not
+an explicit driver close or whole-process restart. On the same SDK26/API23 setup,
+private HAP SHA256
+`0801da3375f408561903d7fb700df91ce9755401ae2184c16d5d5c5494b16022`
+reported `COPIED_ENVIRONMENT_DETACH_PASS` twice without restarting the app.
+
+A Worker imports the same native module, opens all four C sessions, and starts
+one Kotlin test request per session. The fixed loopback URL is never pumped or
+dispatched: there is no RCP call or network fixture. The host first requires its
+own open to fail with capacity, proving a shared process-local registry rather
+than independent copies. It then terminates the Worker without closing its IDs.
+After a clean exit notification, it separately waits for all four slots to become
+reclaimable; onexit is not treated as an ordered cleanup fence. Reclaimed session
+and operation IDs must be larger, stale operation completion under fresh sessions
+must fail, and new queued calls must cancel/poll successfully. A fifth open must
+still fail with capacity. The host finally closes only its own reclaimed sessions.
+
+No production cleanup implementation changed: the existing per-environment NAPI
+hook closes C-owned sessions and frees its own context, with no Kotlin references
+or native queued callbacks. The runtime result demonstrates that hook's registry
+reclamation in this Worker scenario. It does **not** validate environment teardown
+with active RCP streaming/Promise callbacks, UI application destruction, API18
+runtime, physical devices, or general platform quiescence. Keep the bridge
+experimental; do not convert this result into `isDrained=true`.
+
+Primary references: [Huawei V5 cleanup-hook guide](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/use-napi-about-cleanuphook-V5/)
+and [Worker guide](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/worker-introduction-V5/).
+The test follows their lifecycle route, while checking observable registry state
+rather than assuming cleanup order from documentation alone.

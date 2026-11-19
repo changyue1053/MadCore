@@ -1,28 +1,34 @@
 # MadCore
 
-独立 Core 基础 SDK 的初始源码提取稿。目标为 Android、iOS、鸿蒙，供后续业务 SDK 共用。
+面向多个全新 App 和上层 SDK 的独立通用基础库，目标 Android、iOS、HarmonyOS。不是旧工程的等价迁移，不依赖其产品装配、UI 或构建工程。
 
-**当前不是可发布的三端 SDK。平台运行验证尚未完成。**
+**已有三端构建与范围明确的模拟器实测，仍是开发评估版本，不是已批准发布的三端 SDK。** 当前验证范围与剩余发布门槛统一维护在 [交付状态](docs/DELIVERY_GATES.md)，不要把历史提交或编译通过当作当前设备兼容承诺。
 
-## 本批内容
+## 模块
 
-| 模块 | 功能 | 生产依赖 |
-|---|---|---|
-| core-extension | 服务注册、扩展注册和注解 | Kotlin 标准库 |
-| core-time | 系统/注入时钟、时钟偏差校正 | core-extension |
-| core-json | MiniJson 解析 | Kotlin 标准库 |
-| core-logging | 结构化日志、级别过滤、敏感记录默认丢弃 | core-time |
-| core-config | 不可变配置、分层覆盖、严格类型读取 | Kotlin 标准库 |
-| core-net | HTTP 契约、限额、JVM/Android URLConnection、iOS NSURLSession 适配 | Kotlin 标准库 / 平台网络库 |
-| madcore | 统一消费入口、iOS umbrella 配置 | 上述六个模块 |
+| 模块 | 能力 |
+|---|---|
+| core-extension | 服务/扩展注册与注解 |
+| core-time | 系统与注入时钟、偏差校正 |
+| core-json | 有界 JSON 解析 |
+| core-logging | 结构化日志、级别过滤、默认丢弃敏感记录 |
+| core-config | 不可变配置、分层覆盖、严格类型读取 |
+| core-net | 有界 HTTP 契约、Android/JVM 与 iOS 适配；独立异步契约 |
+| core-storage | 非敏感字符串存储、命名空间、Android/iOS 持久化适配 |
+| core-lifecycle | 显式资源所有权、逆序清理与 detach |
+| madcore | 生产模块统一入口与 iOS umbrella |
+| core-testkit | 可选测试时钟/脚本传输，不进入默认生产依赖 |
 
-原 Kotlin 源码及测试保持不变，包名保留 `com.mad.core.*`。来源固定在 `SOURCE-PROVENANCE.json`，没有修改源仓库。新构建不依赖原仓库的 build-logic、产品装配或本地绝对路径。
+## 接入与当前平台边界
 
-没有将原仓库的 AGENTS/工作卡机制复制到新仓库。所有者已确认将本批提取代码公开到本仓库。尚未选择项目开源许可证；公开可见不等于授予任意再分发许可。Gradle wrapper 保留其原许可声明。
+- [新 App 接入](docs/NEW_APP_INTEGRATION.md)、[多个上层 SDK 共用 Core](docs/SHARED_CORE_INTEGRATION.md)。Android 双 AAR、iOS 两个 Kotlin 上层库加单 umbrella、Harmony 双 HAR 均有独立宿主验证；这不是任意独立 iOS framework 重复打包 Kotlin 的兼容保证。
+- Harmony 有独立 ArkTS RCP、Preferences 和生命周期封装；[API23 模拟器证据](docs/HARMONY_RUNTIME_EVIDENCE.md)包括原生调用、存储重启、网络与双 HAR。API18 编译不等于 API18 运行验证。
+- [实验 Kotlin↔RCP 异步桥](docs/HARMONY_ASYNC_HTTP_EXPERIMENT.md)已实际传递请求/结果，并验证关闭、迟到结果、配额恢复。默认构建不包含它；`isDrained` 不因取消或超时变成 true。
+- Harmony ArkTS Preferences **不是** Kotlin `StringStore` 的跨语言持久化实现，不能宣称三端 Kotlin 存储完全对等。
 
 ## 构建入口
 
-需要 JDK 21 和 Gradle wrapper 所列分发包及插件可访问。本地工作区首次下载因网络不可达失败，编译验证改由 GitHub Actions 执行。
+需要 JDK 21、对应平台工具链及固定依赖可访问。Android 使用 SDK36；iOS 需要 macOS/Xcode；Harmony 使用单独固定的 CPF Kotlin fork，不能与上游 Kotlin 目标混在同一次构建。
 
 ```sh
 python3 tools/check_source_boundary.py
@@ -30,144 +36,22 @@ python3 tools/check_source_boundary.py
 ./gradlew -Pmadcore.target=jvm publishAllPublicationsToStagingRepository
 ./gradlew -Pmadcore.target=android :madcore:bundleReleaseAar
 bash tools/build_ios_xcframework.sh
-./gradlew -Pmadcore.target=ohos :madcore:compileKotlinOhosArm64
+./gradlew -Pmadcore.target=ohos :madcore:linkReleaseSharedOhosArm64
 ```
 
-`madcore.target` 为单选，鸿蒙使用原仓钉定的 CPF Kotlin fork，不能把它与上游 Kotlin 目标放在同一构建运行。Android 需要 SDK 36；iOS 需要 macOS/Xcode；鸿蒙需要对应 fork 工具链。
+开发坐标为 `com.mad.core:madcore:0.1.0-SNAPSHOT`，staging 仓位于 `build/staging-repository`。这里的 publish 任务只写本地开发仓，不向远端发布。官方 Harmony CLI 构建只使用已授权的固定版本；工具/SDK不随本仓库分发。
 
-本地制品仓为 `build/staging-repository`。拟用坐标 `com.mad.core:madcore:0.1.0-SNAPSHOT`，只有本地发布成功后才能被外部工程消费；不向远端仓库发布。
+## 必须保留的使用限制
 
-## 平台状态
+- 日志不自动落盘或上传，敏感记录默认丢弃。调用者不能把凭据、用户内容误标为 Public；sink/clock 必须满足宿主线程与非阻塞要求。
+- 配置不是凭据容器，不自动远程拉取或持久化。默认 Core 没有产品登录、升级、隐式授权、重试或遥测。
+- 稳定 Kotlin HTTP API 是阻塞接口，不能在 UI 线程等待。使用平台 TLS，不自动跟随重定向；请求/响应有界，非2xx保留状态。平台代理/ATS等策略仍适用，不是 SSRF 防火墙。超时不证明服务端未执行。
+- 存储仅限非敏感偏好，值上限64 KiB UTF-8。无加密、全量清空、事务、多进程一致性或掉电持久保证。命名空间只是键分区，不是权限沙箱。宿主负责独立文件/suite、备份、同步与平台flush语义。
+- iOS 构建脚本附带有限用途的 privacy manifest；不等于最终 App Store 合规或完整第三方 API 审查。
+- 每平台的编译、链接、模拟器与真机证据分开报告。精确 CI 提交、设备矩阵、实验桥限制和发布决策见 [交付状态](docs/DELIVERY_GATES.md)。
 
-- 已验证代码提交：`108015e`，四项云端任务全部通过：https://github.com/changyue1053/MadCore/actions/runs/44256063080 。
-- JVM：全部测试、Maven 本地发布及仓外 Kotlin/Java 制品消费者通过，包括真实回环 HTTP 行为测试。
-- Android：Release AAR 构建及八模块产物存在性检查通过；未做独立 App 集成/设备测试。
-- iOS：原生 NSURLSession 适配器的 arm64 真机/模拟器 XCFramework、独立 Swift 类型检查和模拟器真实 HTTP 行为测试通过；JUnit 门禁确认用例非空且未跳过，未验证真机 App。
-- 鸿蒙：ohosArm64 klib、独立 `libmadcore.so` / NAPI 桥、真实字节码 HAR 构建和仓外 HAR 消费者编译通过；只依赖该 HAR 的独立示例 App 也成功生成未签名 HAP。当前 ArkTS 仅有 ABI版本、墙钟、JSON对象校验三个接口，**未验证设备运行或完整 Core 功能对等，未签名 HAP 不是可直接安装的发布包。**
-- 后续多个 SDK 共用 Core 的静态链接和类型身份策略仍待设计/实测，不承诺当前 umbrella 可直接与其他独立 framework 组合。
+## 来源与许可
 
-## 下一批
+初始提取文件及固定来源记录在 `SOURCE-PROVENANCE.json`；来源仓未修改。后续独立实现和验证以本仓提交记录为准，不能把初始提取时的说明当作全部当前代码的来源声明。
 
-1. 保留四项构建/测试门禁，扩展 Android 仓外 App 和设备验证。
-2. 扩展鸿蒙 ArkTS 公共 API 和真实设备验证，补 iOS App 集成和 Swift 友好 API。
-3. 扩展网络平台适配、观测和生命周期；已有基础日志/配置不等于完整观测和配置平台。
-4. 可选身份/存储配额/韧性/i18n 按需分包；Compose UI、登录路由、升级业务和测试夹具不进入默认基础包。
-
-## 验证纪律
-
-结构检查只证明来源和依赖边界，不证明 Kotlin 编译正确。三端分别报告通过/失败/未执行，不能以 JVM 通过替代 Android/iOS/鸿蒙验证。不得提交密钥、服务凭据或私有下载地址。
-
-## 验证基础设施（开发分支）
-
-`core-testkit` 提供单线程测试用 `ManualClock`，支持推进时间、独立墙钟跳变及溢出保护；它不进入 `madcore` 默认依赖。
-
-GitHub Actions 工作流会执行 JVM 测试、本地 Maven 发布，并将 `examples/jvm-consumer` 复制到仓库外，只通过 Maven 制品坐标消费。工作流定义不是通过证明，以对应提交的运行结果为准。该 JVM 验证不覆盖三端 App、Swift 导出或鸿蒙 HAR；iOS 有独立 Swift 类型检查门禁。
-
-云端验证记录：https://github.com/changyue1053/MadCore/actions/runs/44256063080 。其中鸿蒙任务独立判定，其他任务通过不代表鸿蒙通过。
-
-## 结构化日志（开发分支）
-
-`StructuredLogger` 通过宿主注入 `LogSink`，默认无操作接收器，不落盘、不上传、不依赖 shellhost 或 UI。所有构建形态默认丢弃敏感记录；只有显式 `FieldPrivacy.Public` 的记录能进入 sink。域/码仅接受短 ASCII 标识符。字段仍由调用方审查，不承诺自动识别个人数据，禁止将凭据或用户内容标记为 Public。不使用弱哈希假装匿名化。普通 sink/clock 异常被隔离，严重 Error 不吞；调用在当前线程进行，宿主负责线程安全及非阻塞。
-
-本模块是独立实现，不是原仓 `core-obs` 的完整复制；暂不包含指标、事件分析、平台日志适配或诊断包。
-
-## 本地配置模型（开发分支）
-
-`ConfigSnapshot` 防御性复制输入，叠加产生新快照，可供多个读者共享。缺失值返回 null，存在但不合法的类型值抛 `ConfigValueException`，不将错误配置静默当成缺失。异常与 `toString` 不输出配置值。快照只存字符串，不是安全凭据容器；不包含账号、产品/BOM、签名协议、远程拉取或持久化。此模块独立实现，不复制原仓带业务协议的完整 `core-config`。
-
-## 网络基础（开发分支）
-
-`HttpClient` + `HttpTransport` 为阻塞接口，宿主必须放到非 UI 线程。`UrlConnectionTransport` 仅在 JVM/Android 提供，支持 GET/POST/PUT/DELETE，默认只允许 HTTPS、不自动跟随重定向、不加应用层重试。请求/响应体限额在 JVM/Android 适配器中执行；连接和读取超时是 socket 超时，不是包含 DNS/写入的全程 deadline，不提供取消。平台代理、CookieHandler、Authenticator 等全局网络钩子仍可能生效；不是 SSRF 防火墙。Android App 须自行声明 INTERNET 权限。
-
-响应非 2xx 仍返回状态/响应体；网络异常仅返回枚举错误，不附带 URL、头或正文。请求禁止 URL 内凭据、片段、换行头及传输层所有的头。TLS 校验采用平台默认，不关闭证书或主机名校验。测试仅显式给本机回环 HTTP 开绿灯。鸿蒙目前只有公共网络契约，须注入宿主适配器，不宣称已有原生 HTTP 实现。
-
-### iOS 原生网络
-
-`IosUrlSessionTransport` 使用每次调用独立的 ephemeral NSURLSession；拒绝主线程调用，关闭 cookie/凭据存储/缓存，保留平台 TLS 校验。流式检查响应限额、不跟随重定向，超时会取消底层请求。Foundation 只有单个空闲超时，取连接/读取限额中的较小值，另有 `callTimeoutMillis` 总等待上限。公开接口仍是阻塞式，不提供调用方主动取消。系统代理、ATS 及其他宿主网络策略仍适用。
-
-CI 的 iOS 模拟器测试使用本机 Python HTTP 服务，覆盖 GET/POST/PUT/DELETE、错误响应、重定向拒绝、固定/分块响应限额、超时及之后的新请求。测试配置存在不等于测试通过；`cc69dec` 的模拟器测试任务已通过（运行 https://github.com/changyue1053/MadCore/actions/runs/44246999178）；后续还增加 JUnit 用例非空/未跳过检查。以上平台状态为已确认结果。目前已有独立 Swift/UIKit 宿主 App 的模拟器运行及不可信自签名 TLS 拒绝测试；仍没有物理真机或真实公网有效 TLS 覆盖。
-
-## 鸿蒙 C/NAPI 边界预览（开发中）
-
-`madcore` 增加 ohosArm64 shared library 目标，C ABI v1 仅暴露版本、墙钟毫秒及有 64 KiB 上限的 JSON 对象校验。`harmony/native` 为独立 NAPI 桥源码，直接链接 `libmadcore.so`，不含产品装配、Compose、IM 或动态产品加载。此阶段不是完整 Core 的 ArkTS 映射。C 指针调用方必须提供有效、可读的长度范围；不跨 ABI 持有 Kotlin 对象。
-
-`0249ba3` 的 shared library 链接、AArch64/C 导出符号检查及独立 NAPI 桥编译链接已通过云端验证；`9a4ce27` 进一步通过限定导出面、移除仅属于可执行程序的 Scrt1.o、禁止未解析引用及零入口/无 main 重定位检查；没有伪造 main 桩。`108015e` 已通过实际字节码 HAR 打包、仓外 ArkTS HAR 消费和独立未签名 HAP 组装。CI 核对 HAR 声明入口、非空 ABC 代码及两份 native 库，绝非仅把源码压缩。尚无真机/模拟器执行结果，不能称为可发布 SDK。工具链/SDK 仅用于构建，不随仓库分发。
-
-官方 Linux CLI 5.1.0.840 的只读探测已校验下载包哈希并确认内置 SDK 5.1.0.125/API18、Hvigor 5.18.5。只读探测未执行 SDK/Hvigor。所有者随后明确同意使用该版本的工具/SDK/Hvigor进行云端构建；分发许可范围仍待明确。只读探测不再自动随 PR 运行，新的 HAR 构建门禁仅使用这一已批准版本。工具协议对使用/下载、再分发及 SDK 用途有约束，不把可下载等同于任意使用许可，也不把 API18 编译候选等同于已验证最低运行版本。
-
-### 鸿蒙独立消费验证
-
-示例位于 `examples/harmony-consumer`。云端将构建出的 HAR 复制到完全独立目录，再安装此本地制品并运行 `assembleHap`，没有依赖源仓或 MadCore Kotlin 源码。测试 App 使用已获准 SDK 的 C++ runtime，仅在临时 CI 目录组包，不发布。API18 只是本次构建配置，不能据此保证最低运行版本。
-
-发布前仍需处理：SDK/运行库分发许可、签名与设备运行、生成声明的 ArkTS 警告、工具链 SemVer 警告，旧构建曾报告 CLI 安装 pnpm 的 high 安全告警，现已通过下述官方 npm 路线移除该安装路径。没有运行 `npm audit fix --force` 或隐藏这些警告。
-
-## 受限本地字符串存储（开发中）
-
-`core-storage` 提供 `StringStore`、单线程 `MemoryStringStore`、Android `SharedPreferencesStringStore` 和 iOS `UserDefaultsStringStore`。仅用于非敏感偏好：键为 1..128 字符的小写 ASCII 标识符，值限 64 KiB UTF-8；空字符串不等于缺失。无枚举/清空全部、事务、加密、多进程一致性或崩溃持久性承诺。错误不包含键值或平台诊断。宿主提供独立文件/suite，并管理备份策略与线程。
-
-Android 使用同步 commit，失败返回 Backend，但平台内存可能已经变化，失败不等于回滚。iOS 遵循 UserDefaults 异步写盘语义，不调用 Apple 不建议使用的 synchronize；只确认内存更新，注册默认值可能在删除后重新出现。测试重新构造适配器，不冒充进程重启或掉电恢复验证。鸿蒙 Kotlin 侧有公共契约/内存实现；另有独立 ArkTS `PreferencesStringStore` 接受宿主已有 Preferences，get/put/remove 仅操作缓存，flush() 异步等待平台刷盘确认。两次默认值探测区别实际空串和错误存储类型，宿主必须串行化所有访问。该 ArkTS 类不是 Kotlin 接口的跨语言实现；当前仅有 HAR/消费者编译门禁，尚无鸿蒙存储设备执行证据。
-
-Apple 要求 UserDefaults 的隐私清单理由声明；本 SDK 是仅由宿主调用的包装 API，对应 C56D.1 的候选用途。使用 `bash tools/build_ios_xcframework.sh` 构建的开发 XCFramework 会将 UserDefaults 包装理由 C56D.1 与应用内间隔/计时理由 35F9.1 写入每个 framework slice；仅直接运行原始 Gradle assemble 不包含这一步。CI 读取每份 plist 核验。发布前仍须审查 Kotlin/runtime 全部 required-reason API 和宿主实际用途，不能据此宣称 App Store 合规。参见 [Apple 官方理由说明](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。
-
-### Android 独立运行已验证
-
-`3f46501` 的 [云端运行](https://github.com/changyue1053/MadCore/actions/runs/44258322761) 已通过仓外 Maven 消费、APK 编译及 API30 标准 AOSP x86_64 模拟器真实网络测试。该记录不覆盖本节新加的存储代码；存储行为以之后对应提交 CI 为准。未接受 ATD 专用协议，标准镜像使用 runner 已有 SDK 许可；没有自动同意命令。真机、API24 和真实公网 TLS 尚未验证。
-
-### 鸿蒙构建依赖安全（已验证 npm 路线）
-
-pnpm 8.13.1 的独立元数据审计确认多条 advisory 汇总为一个 high 受影响包，而非单一漏洞。本分支改用 [华为官方支持的 hvigor.dependency.useNpm 配置](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/ide-hvigor-set-options-V5/)，不盲升 pnpm 大版本或修改 SDK。CI 使用临时 HOME/空 npm 用户配置，避免读取用户 token 和共享执行缓存，并在构建后检查 wrapper 未安装 pnpm。`bc93473` 及 `f1ecc55` 已通过实际 HAR/仓外消费/HAP 构建和无 wrapper pnpm 门禁；没有据此宣称 Node/npm/Hvigor 整体无漏洞。
-
-API18 的 NetworkKit 缺少已确认的禁用重定向参数，但不能据此否定整个 HarmonyOS SDK：Remote Communication Kit 从 API11 已提供 autoRedirect=false。新增实验性 RCP 路线见下节；不以响应后的检查替代发送前拒绝。
-
-iOS 清单只声明本 SDK 当前 API 的有限用途，不替宿主声明完整的数据收集/跟踪政策。禁止借计时 API 做指纹识别或发送设备启动时间；可发送的仅限应用内事件间隔。SDK 不自行上传存储或日志。最终应用、三方依赖和分发流程仍须隐私审查。参考 [Kotlin 官方说明](https://kotlinlang.org/docs/multiplatform/multiplatform-privacy-manifest.html)。
-
-
-### 当前完整 CI 里程碑
-
-`f1ecc55b34c17ad96d3d6a073fff93fddc9f17b5` 的 [运行 44264199192](https://github.com/changyue1053/MadCore/actions/runs/44264199192) 四项全部通过：JVM、Android独立App模拟器3用例、iOS原生HTTP/存储及两片framework隐私清单、鸿蒙字节码HAR/独立消费/未签名HAP与npm模式门禁。此后本README更新不改变该已验证代码。通过不等于真机/全部平台功能等价、SDK分发许可或可直接发布。
-
-## 资源生命周期（开发中）
-
-`core-lifecycle` 的 `ResourceScope` 接收显式 `CloseableResource`，关闭时先解除全部所有权再逆序清理；普通异常计数并隔离，严重 Throwable 在尝试清理整个批次后重新抛出。重复/重入关闭返回空报告，注册句柄 detach 只转移所有权而不关闭。关闭后注册失败，资源仍归调用方；同实例重复注册会分别关闭，调用方须避免误注册。
-
-这是宿主串行调用的资源管理器，不是线程安全容器、调度器、异步取消或平台生命周期自动绑定。不得用它隐式接管宿主窗口、账号或全局资源。报告不保存资源信息和异常内容。跨语言回调还须宿主遵守相同线程及异常约定。
-
-## 鸿蒙 RCP 网络路线（实验性、待设备验证）
-
-`RcpHttpClient` 为独立异步 ArkTS API，不是 Kotlin `HttpTransport` 回调桥，也不宣称 OpenHarmony 支持。使用已批准 SDK 内 Remote Communication Kit，每次调用私有 Session、显式 autoRedirect=false、显式流式 destination、系统默认 TLS 验证；无自动应用层重试、认证、日志或自定义信任。宿主须声明 INTERNET 权限。请求支持 GET/POST/PUT/DELETE，保守接受 ASCII DNS/IPv4 authority（暂不支持 IPv6/IDN），默认拒绝 HTTP，头/正文防御性复制。响应返回状态、正文和防御性复制的 Map<string, string[]> 响应头，保留平台给出的键及数组值，不拆分逗号字符串，也不能还原平台已合并的信息；仍不是 Kotlin 接口桥。
-
-上限在复制分块前检查，失败后取消并关闭；迟到回调不重复结算。连接/空闲/传输超时及总等待计时器均设置，原生超时代码只映射为脱敏分类。上限约束 SDK 保留的数据，不保证平台内部缓冲或单次分块分配大小。没有关闭证书或主机名验证。公开错误不包含 URL、头、正文或平台诊断。
-
-主机测试执行原样 ETS 策略经 Node 类型转换后的逻辑，并将适配器模块导入定向到明确标记的假 SDK，以测试超限、超时、重入取消、迟到完成和清理。它们绝不是鸿蒙网络执行证据。提交 `5d6a4b9c` 已通过固定 API18 的真实 Kit 编译、HAR、仓外消费者及 unsigned HAP 组装；真机/模拟器仍需验证重定向目标零命中、无效证书拒绝、分块上限及取消。没有接受新工具/镜像协议，也不据此授予 Kit 分发许可。
-
-官方依据：[RCP API](https://developer.huawei.com/consumer/en/doc/harmonyos-references-V13/remote-communication-rcp-V13/)，[准备工作](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-v5/remote-communication-preparations-V5)。
-
-
-## 原生桥边界验证
-
-`tools/test_native_bridge.sh` 在 Linux 主机上编译实际 NAPI C 桥，使用明确的假 NAPI/Kotlin C ABI 与地址/未定义行为检查器，覆盖参数错误、UTF-8 长度、嵌入 NUL、64 KiB 上限、转换失败、结果创建失败及注册错误。它只验证桥自身的内存与错误路径，不替代真实 NAPI、Kotlin/Native 运行时、ABI 装载或设备验证。
-
-独立 Harmony 示例增加 `NativeSmoke.ets` 的 11 项原生调用检查，包括 Unicode、空/非法 JSON、带 NUL 文本和 64 KiB 边界。只有未来设备实际执行全部断言才显示通过；当前 CI 仍只负责其编译/打包，不虚构设备测试结果。
-
-
-Harmony Storage 增加原样 ETS 的模拟后端测试，覆盖类型默认值探测、UTF-8 上限、非法代理项与 flush 错误；不代表真实设备持久化。Android/iOS 的实际 HTTP 测试增加服务端重定向目标命中计数，要求请求前后为零，而不是只检查302状态。跨运行时桥的线程、引用、取消和关闭门槛见 [设计契约](docs/CROSS_RUNTIME_BRIDGE.md)，尚未实现异步对象桥。新增测试通过状态以对应提交 CI 为准。
-
-公共接口、宿主职责及各平台证据边界汇总见 [PUBLIC_API_STATUS](docs/PUBLIC_API_STATUS.md)。HTTP 安全回归新增临时自签名 TLS 服务：Android/iOS 必须拒绝未受信任证书，且服务端应用层探针命中数保持零；测试不修改设备信任库、不安装根证书、不关闭校验。它不等于公网有效证书、主机名不匹配、过期证书或吊销覆盖。实际通过状态以当前提交云 CI 为准。
-
-
-目标是让多个全新 App 独立引用同一套通用基础 SDK，不以旧工程等价迁移或兼容为目标。接入方式、宿主装配与平台验收见 [新 App 接入指南](docs/NEW_APP_INTEGRATION.md)。JVM消费者会检查重复API类，作为通用依赖冲突保护。
-
-## 多实例存储隔离
-
-Kotlin 与 Harmony ArkTS 提供同规则的 `NamespacedStringStore`，包装宿主提供的 StringStore，把逻辑键映射为 `namespace.key`。命名空间为1..32位小写字母开头的字母/数字/下划线/连字符（不允许点）；逻辑键最多95位，确保物理键不超过128位。不同实例可复用同一个后端而不覆盖彼此键值，不使用SDK全局状态。
-
-这只是键分区，不是安全沙箱、跨App共享存储、加密、事务或权限隔离。宿主可直接访问后端，因此仍须控制访问及同步；包装器不拥有后端、不清空其他键、不自动flush/close。Harmony需要持有原PreferencesStringStore调用flush。Android/iOS实际平台测试与Harmony原样ETS模拟测试验证相同分区规则，后者不代表设备持久化。
-
-
-通用HTTP增加PUT/DELETE：Kotlin和ArkTS遵循一致规则，POST/PUT允许有界正文（可为空），GET/DELETE拒绝正文。没有增加隐式重试、授权或删除策略；超时不能证明服务端未执行。PATCH/HEAD尚未公开支持。JVM、Android和iOS测试检查服务端实际收到的方法和正文，Harmony仍仅策略/模拟及SDK编译验证。
-
-`core-testkit` 增加可注入的 `ScriptedHttpTransport`：预置FIFO响应或脱敏失败，支持剩余脚本断言与调用计数，方便各新App无需真实后端测试业务成功/失败路径。该工具不保存请求、不开网络、不隐式重试，需单线程使用；它不是TLS/网络模拟器，也不进入默认生产umbrella。
-
-开发交付清单见 `SDK-MODULES.json`。JVM/Android CI校验实际staging POM依赖闭包，防止测试工具误入生产umbrella、模块遗漏、内部版本漂移或未审核的运行依赖；生成POM哈希报告。该检查不是完整SBOM、许可证结论或正式发布，仍保留仓外消费者和三端独立打包验证。
-
-Harmony ArkTS增加纯逻辑 `ResourceScope`，与Kotlin保持显式所有权、detach、逆序清理、重入/重复关闭及关闭后拒绝注册的规则一致。异常分类需明确区别：Kotlin区分Exception与其他Throwable，ArkTS仅把显式FatalCleanupError视为批次清理后重新抛出的严重错误。没有自动生命周期接管/线程调度/异步取消，也不是跨Kotlin对象桥；真实设备运行仍待验证。
+所有者已授权公开本仓源码，但**项目 LICENSE 尚未选定，公开可见不等于任意再分发授权**。Gradle wrapper 保留原许可声明。第三方工具链/runtime的精确组件、NOTICE及二进制分发权限仍须按 [分发审查清单](docs/DISTRIBUTION_REVIEW.md)处理；构建授权不是二进制发布授权。当前 Draft PR 不授权 merge 或 release。
