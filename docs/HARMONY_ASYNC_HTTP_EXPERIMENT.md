@@ -46,7 +46,7 @@ An isolated Mac arm64 CPF 2.2.21-1.0.0 / Clang 19.1.4 /
 sysroot 6.0.2.640-04 native build, packaged with existing DevEco SDK 26.0.0.105,
 ran on a positively identified Pura 90 arm64 API 23 simulator. The final unsigned
 private HAP SHA256 was
-`21cf0aefa7eab8c3edcb7f37738b210bd0a7e64b22d6ab3873fb004aa497263a`.
+`f16591014130bdd7ddc77ed42a565231a0dc13aca3f178443b9a58c68d5601f8`.
 The harness displayed `COPIED_RCP_KOTLIN_PASS`; ordinary native smoke also passed.
 
 The eleven real request cases are GET body, POST header/body, PUT body, DELETE,
@@ -74,3 +74,16 @@ both test reverse ports were cleaned up. No binary or screenshot was published.
   stress and proven transport drain remain unverified.
 - Default platform CI and independent consumers remain required. Source readiness
   does not resolve third-party binary redistribution or project-license decisions.
+
+## Fixture isolation correction
+
+CI on 96f6c7de caught a regression introduced by the experiment: a new header
+guard on shared POST `/echo` broke Android's existing 201/raw-body contract.
+The guard now uses dedicated `/bridge-echo`; legacy semantics and binary/empty
+bodies have regression tests. The corrected bridge was rebuilt cleanly and all
+eleven simulator cases passed again, with zero redirect/TLS HTTP hits and one
+TLS handshake attempt. Initial reruns were not passes: a detached fixture exited,
+and an incremental HAR build retained old bytecode. The clean rebuild verified
+`/bridge-echo` in the compiled HAR before installation. Use fresh isolated copies
+or `hvigorw clean` when changing root-level ETS sources. No failed run is counted
+as evidence. Full corrected-head CI remains a separate required gate.

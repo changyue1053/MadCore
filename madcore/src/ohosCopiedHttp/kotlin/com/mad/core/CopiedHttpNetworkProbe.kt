@@ -15,7 +15,8 @@ fun copiedHttpTestStart(session: Int, urlBytes: CPointer<ByteVar>?, length: Int,
     val protocol = if (scenario == 9) "https" else "http"
     val endpoints = when (scenario) {
         1 -> setOf("ok")
-        2, 10, 11 -> setOf("echo")
+        2 -> setOf("bridge-echo")
+        10, 11 -> setOf("echo")
         3, 5 -> setOf("slow")
         4 -> setOf("chunked")
         6 -> setOf("error")

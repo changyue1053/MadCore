@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self): self.method_echo()
     def do_DELETE(self): self.method_echo()
     def do_POST(self):
-        if self.path == '/echo':
+        if self.path == '/bridge-echo':
             if self.headers.get('X-Copied-Request') != 'probe':
                 self.send_error(400); return
             self.method_echo(); return

@@ -148,7 +148,7 @@ export async function runCopiedHttpDeviceVerification(http: string, tls: string)
   check(/^https:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(tls));
   const driver = new CopiedHttpDriver();
   try {
-    const paths = ['/ok', '/echo', '/slow', '/chunked', '/slow', '/error', '/bridge-headers', '/redirect', '/tls-probe', '/echo', '/echo'];
+    const paths = ['/ok', '/bridge-echo', '/slow', '/chunked', '/slow', '/error', '/bridge-headers', '/redirect', '/tls-probe', '/echo', '/echo'];
     for (let scenario: number = 1; scenario <= 11; scenario++) {
       const id = bridge.startTest(driver.session, (scenario === 9 ? tls : http) + paths[scenario - 1], scenario);
       check(id > 0); driver.pump();
