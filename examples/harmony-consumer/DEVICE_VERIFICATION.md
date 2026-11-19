@@ -6,7 +6,8 @@ because CI compiles it. Native smoke remains independently runnable with no netw
 
 ## Before running
 
-Use an already authorized API18-compatible device/emulator and toolchain.
+Use an already authorized device/emulator and toolchain. Do not interpret the
+API18 package configuration as proof that the bundled native libraries load on API18.
 Install/sign only through an authorized existing setup; this guide grants no new
 agreement, signing or distribution permission. Never upload keys or credentials.
 The example app requests INTERNET permission. No network request or Preferences
@@ -76,3 +77,44 @@ Existing Harmony CI copies this consumer outside the checkout, supplies the
 built HAR, and assembles an unsigned HAP. Referencing the harness from the real
 page checks API18 compilation but executes none of these actions.
 Do not replace a device run with mocked ETS tests or a green assembly job.
+
+## Dual toolchain pins and device compatibility preflight
+
+The source baseline inspected for this note is
+`08daa1b248c82d29cbca8c873752398dd64d86c4`.
+
+- ArkTS/HAP: both build-profile files declare targetSdkVersion and
+  compatibleSdkVersion `5.1.0(18)`; compileSdkVersion is not explicitly set.
+  The build uses SHA-checked CLI `5.1.0.840` with the recorded SDK
+  `5.1.0.125/API18` and Hvigor `5.18.5`.
+- Native: the Kotlin fork is `2.2.21-1.0.0`. The NAPI build explicitly selects
+  `cpf-llvm-19-x86_64-linux-dev-20` and
+  `sysroot-ohos-aarch64-6.0.2.640-04`. It links against that sysroot's libraries,
+  not the API18 CLI's native sysroot. Both generated libraries are AArch64.
+- Huawei's [6.0.2 developer-suite mapping](https://developer.huawei.com/consumer/en/doc/harmonyos-releases/overview-602/)
+  maps DevEco Studio `6.0.2.640` to HarmonyOS `6.0.2(22)` and SDK
+  `6.0.2.130/API22`. This supports the suite-version association, not proof of
+  the CPF repackaged sysroot's complete provenance, or this binary's minimum API.
+
+These are **different build inputs**, not one uniformly verified API18 toolchain.
+A newer sysroot does not alone prove API22 is required, and a compatibleSdkVersion
+declaration does not prove API18 suffices. Native imported libraries/symbols and
+the actual device loader determine whether the package can load.
+Do not change the declared minimum, add weak-symbol workarounds or upgrade tools
+merely to conceal a load failure.
+
+Before a device trial, record the exact device OS/API from its About screen,
+CPU/application ABI, HDC and SDK versions, source commit and rebuilt HAP/SO hashes.
+Require arm64-v8a support; an x86_64-only emulator cannot validate these SOs.
+Preserve `readelf -h`, `readelf -d`, `readelf --dyn-syms --wide` and
+`readelf --relocs --wide` output for both SOs, plus the existing native inventory.
+Check DT_NEEDED dependencies and undefined imports against the chosen device's
+available system libraries/API declarations. Weak imports alone are not a safety
+proof; verify guarded use as well. Keep diagnostics limited to this test app and
+its load attempt; do not collect unrelated app logs or credentials.
+
+Run native smoke first. On install/load failure, preserve the app-scoped loader
+error and missing-library/symbol names, then stop network/storage checks.
+A failure is a compatibility finding, not a harness pass. One newer-device pass
+would establish only that tested device/API, not a lower supported minimum.
+No device run or minimum-runtime certification has occurred.
