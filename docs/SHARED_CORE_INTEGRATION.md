@@ -28,9 +28,48 @@ then copies their AARs to the independent app and deletes the upper SDK build
 project. The host explicitly resolves Core from staged Maven; local AAR files do
 not carry transitive dependency metadata. The emulator test passes a StringStore
 between the AARs and checks instance/type identity. Archive guards reject embedded
-Core classes/native libraries. This is not published upper-AAR metadata validation.
+Core classes/native libraries. This raw-AAR runtime route is not published upper-AAR metadata validation; the
+separate Maven metadata/compile check below covers that narrower packaging gap.
 
-Harmony builds two separate thin HARs against a normal Core dependency,
+## Android upper Maven publications: bounded local evidence
+
+Recorded against exact source `e828305d121cf900502da708d448f33d7efcb645`, using
+isolated temporary fixtures only. Existing Alpha and Beta sources were unchanged;
+temporary Gradle configuration published their Android release components to a
+disposable local Maven repository as `com.mad.probe:alpha:0.1.0` and
+`com.mad.probe:beta:0.1.0`. Each retained its original `api` dependency on
+`com.mad.core:madcore:0.1.0-SNAPSHOT`.
+
+The independent app declared **only those two upper production coordinates**,
+with neither a direct Core declaration nor local/raw AAR dependencies. The check
+used the exact cached official AGP8.13.2 implementation via fixture-only
+`pluginManagement.resolutionStrategy.useModule` because its plugin-marker
+coordinate was absent offline. No version change, fabricated metadata or download
+was used; this is not a change to the repository's build configuration.
+
+Verified:
+- Both release POMs preserve Core at compile scope; both API/runtime module
+  variants preserve the transitive dependency and declare Android AAR elements.
+  These upper module variants do not explicitly carry a Kotlin platform attribute.
+- Debug and Release compile **and** runtime classpaths each select nine Core
+  Android AAR implementations at one version, `0.1.0-SNAPSHOT`, with resolved
+  `androidJvm` variants and no JVM fallback.
+- The graph also contains root KMP metadata coordinates; those are not duplicate
+  implementations. Each of the four artifact closures contains 66 unique Core
+  classes with no duplicate definition. The two upper AARs contain no Core classes.
+- Published upper AAR bytes match their release build outputs. An actual Java
+  call constructing `SharedPreferencesStringStore` compiles in Debug and Release,
+  exercising an Android-only adapter rather than accepting a JVM substitute.
+
+This validates local publication metadata, dependency resolution and compilation,
+**not execution through this Maven packaging route**. The earlier API30
+identity/mutation runtime test uses raw upper AARs and explicit Core; it must not
+be relabeled as this test. No API24/API36, physical-device, remote repository,
+version-skew or binary-release claim follows. Private fixture logs and artifacts
+are retained separately; nothing was uploaded or published externally.
+
+Historical Harmony verification (tool execution is now paused for license review)
+built two separate thin HARs against a normal Core dependency,
 using a project-level override to the local built Core HAR, then deletes the upper projects before consuming their HARs plus one explicit
 Core HAR in an unsigned HAP. A compiled page-level function passes the shared
 NamespacedStringStore type from Alpha to Beta. Archive checks require exactly one

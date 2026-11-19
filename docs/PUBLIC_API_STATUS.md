@@ -9,10 +9,11 @@ production umbrella; `core-testkit` is opt-in. No mad-repo checkout is required.
 | Kotlin foundation | extension, time, JSON, logging, config, lifecycle | Common tests; Android/iOS independent hosts; Harmony native compilation |
 | Kotlin HTTP | HttpClient/HttpTransport, GET/POST/PUT/DELETE, bounded bytes, immutable copies | JVM and Android URLConnection; iOS NSURLSession; blocking, off UI thread |
 | Kotlin storage | StringStore, memory, SharedPreferences, UserDefaults | Android/iOS adapter and native behavior tests; non-secret preferences |
-| Harmony native | MadCore ABI version, epoch, bounded object-JSON predicate | C bridge host sanitizer tests + real native link/HAR compile, not device execution |
-| Harmony HTTP | RcpHttpClient/RcpRequest/RcpResponse/RcpLimits | Async ArkTS, API18 compile + mocked policy/state tests, no device network proof |
-| Harmony lifecycle | ResourceScope / CloseableResource | Exact-source host tests + API18 compile; host-serialized, no device proof |
-| Harmony storage | PreferencesStringStore | Host-provided preferences; API18 compile + mocked tests, no persistence proof |
+| Harmony native | MadCore ABI version, epoch, bounded object-JSON predicate | Host sanitizer/link checks plus scoped Pura90 arm64/API23 simulator native smoke; not API18 runtime or physical-device proof |
+| Harmony HTTP | RcpHttpClient/RcpRequest/RcpResponse/RcpLimits | Independent ArkTS API; API18 compile/mocks plus controlled API23 RCP network, redirect/size/timeout and self-signed TLS rejection evidence |
+| Harmony lifecycle | ResourceScope / CloseableResource | Exact-source host tests + historical API18 compile; host-serialized. Experimental Worker registry cleanup evidence is a distinct contract, not general lifecycle runtime coverage |
+| Harmony storage | PreferencesStringStore | Host-owned ArkTS Preferences; API23 process-restart/read/remove proof, not power-loss durability or a common Kotlin StringStore persistence bridge |
+| Experimental Harmony Kotlin HTTP | Opt-in bounded copied-result transport | Actual Kotlin→C→RCP→C→Kotlin API23 results and bounded lifetime tests; excluded from default builds, no in-flight native drain guarantee |
 
 ## Host responsibilities
 
@@ -40,11 +41,22 @@ quoted fields on commas. Headers may contain secrets; toString omits them.
 
 ## Evidence and release gates
 
-Exact commit CI is authoritative. Missing tests are not passes. Local self-signed
+CI results and separately recorded local runs apply only to their exact sources and tests. Missing tests are not passes. Local self-signed
 TLS rejection tests do not establish valid-public-certificate coverage, hostname
 mismatch rejection, expiry/revocation handling or certificate pinning.
-Harmony unsigned HAP assembly is not native load, networking or persistence proof.
-Kotlin/ArkTS async bridging remains design-only: see CROSS_RUNTIME_BRIDGE.md.
+Harmony unsigned HAP assembly alone is not runtime proof. Scoped native, RCP,
+Preferences and dual-HAR simulator execution is recorded in
+[Harmony runtime evidence](HARMONY_RUNTIME_EVIDENCE.md); later sections supersede
+that report's initial stage-specific gaps. The real opt-in HTTP bridge is recorded
+in [experimental HTTP evidence](HARMONY_ASYNC_HTTP_EXPERIMENT.md), not merely a design.
+It remains experimental: started calls keep `isDrained=false`. Promise settlement
+is not native callback drain; Worker cleanup covered queued, undispatched requests,
+not active RCP teardown. Storage remains the independent ArkTS API.
+
+Harmony API18 compilation and API23 simulator execution are separate evidence;
+neither establishes API18 runtime or physical-device support. **Harmony tool
+execution/builds are currently paused for SDK-license applicability review.**
+Historical successful builds do not authorize resuming them or distributing binaries.
 Distribution licensing, runtime testing and explicit release/merge approval remain
 separate gates. No toolchain SDK binaries or signing keys belong in this repository.
 

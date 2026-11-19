@@ -4,22 +4,59 @@ MadCore's goal is a reusable foundation for NEW Android, iOS and HarmonyOS apps.
 It is not a migration or API-parity project. Applications choose explicit host
 adapters; SDK code must not know product IDs, backend endpoints, accounts or UI.
 
-## Dependency choices
+## Select the preview source and evidence
 
-- Android: consume `com.mad.core:madcore:0.1.0-SNAPSHOT` from the local staging
-  repository for development. The independent Android example demonstrates this
-  without a project dependency or source checkout at the consumer location.
-- iOS: integrate the built MadCore XCFramework and its privacy-manifest resource.
-  The independent Swift/UIKit example demonstrates archive-only consumption.
-- Harmony: integrate the built `madcore.har`; the standalone example consumes only
-  that HAR. Native runtime packaging and API23 emulator execution are verified for
-  the recorded setup; API18 runtime, physical devices and redistribution remain open.
+Use [Draft PR #1](https://github.com/changyue1053/MadCore/pull/1) to identify the
+current candidate revision and its qualified evidence; do not assume `main` is
+that preview. Before building, select a known full commit from the PR and check
+`git rev-parse HEAD` against it in your evaluation checkout. Record that SHA with
+your results. A newer commit does not inherit a previous commit's test outcome.
+
+[DELIVERY_GATES](DELIVERY_GATES.md) separates historical CI, exact-head results and
+local tests. In particular, the recorded e828305d iOS staging/independent-consumer
+local run is not the complete iOS CI suite. Historical green run 44463243979 has
+**zero downloadable artifacts** and is not evidence that the current head is
+fully green. There is no SDK binary download/release attached to this handoff.
+Private test HAPs are not release assets.
+
+## Dependency choices and local preparation
+
+- Android: consume `com.mad.core:madcore:0.1.0-SNAPSHOT` from the target-specific
+  local Maven repository. From the reviewed checkout root, prepare it with:
+
+  ```sh
+  ./gradlew -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
+  ```
+
+  Then point `-PmadcoreRepository` at the absolute path to
+  `build/staging-repository/android`. A lone umbrella AAR is not the full Maven
+  dependency closure. Do not combine different targets' staging directories.
+  The [independent Android example](../examples/android-consumer/README.md)
+  includes both upper AARs and the HTTP/TLS fixture for its existing runtime lane.
+  Separate upper-Maven metadata/compile evidence and its no-runtime limit are
+  recorded in [shared-Core integration](SHARED_CORE_INTEGRATION.md).
+
+- iOS: `bash tools/build_ios_xcframework.sh` produces the evaluated device and
+  arm64 Simulator MadCore XCFramework slices. Integrate the built framework and
+  its privacy-manifest resource, not SDK source modules. For multiple Kotlin
+  upper libraries, use one app-specific umbrella as in the
+  [Kotlin composition example](../examples/ios-kotlin-composition/README.md);
+  its local Core repository is `build/staging-repository/ios`.
+  See [exact-head local evidence](DELIVERY_GATES.md#exact-head-local-ios-staging-consumer-evidence)
+  and [toolchain compatibility limits](DELIVERY_GATES.md#tested-toolchain-versus-upstream-compatibility).
+  These scoped checks are not App Store, signing/distribution or physical-device
+  acceptance, and are not a promise that arbitrary Kotlin frameworks can coexist.
+
+- Harmony: the HAR, native packaging and API23 simulator results are **historical
+  evidence only**. **Do not execute Harmony/ohos/CLI/DevEco builds or bridge
+  evaluation while SDK-license applicability review is pending.** This guide
+  does not provide an active Harmony build step or authorize reusing private HAPs
+  for distribution. API18 runtime, physical devices and redistribution remain
+  open. See [Harmony evidence](HARMONY_RUNTIME_EVIDENCE.md) for the recorded scope.
+
 - Test helpers are opt-in; do not add core-testkit to production by default.
-- These are development artifacts, not publicly released package coordinates.
-- Start from source and build into a local staging repository/framework/HAR. The
-  green baseline CI run 44463243979 has **zero downloadable artifacts**; it is
-  build/test evidence, not an SDK download. Private test HAPs are not releases.
-- Current evidence and finite gaps are maintained in [DELIVERY_GATES](DELIVERY_GATES.md).
+- All coordinates and local outputs above are development evaluation artifacts,
+  not publicly released package coordinates or permission to publish.
 
 ## Host-owned composition
 
@@ -47,7 +84,7 @@ accident.
    from conflicting dependencies; it is not an old-code compatibility check.
 7. Review the public API status and platform-specific limits before release.
 
-## Remaining platform work
+## Remaining platform work (Harmony evidence is historical while paused)
 
 - Harmony API23 runtime covers native smoke, independent ArkTS RCP/Preferences
   and dual-HAR identity/shared mutation. Preferences restart checks are real, but
@@ -58,7 +95,8 @@ accident.
   reuse, not native resource drain.
 - Worker teardown reclaimed four C sessions with queued, undispatched requests.
   This does not establish destruction safety during active RCP callbacks. See
-  [experiment evidence](HARMONY_ASYNC_HTTP_EXPERIMENT.md) before opting in.
+  [experiment evidence](HARMONY_ASYNC_HTTP_EXPERIMENT.md); this is not permission
+  to resume evaluation during the license pause.
 - Build/release licensing and explicit publication approval remain open.
 - API stability and broader method/cancellation needs should be driven by new-app
   use cases, not by matching a previous repository's surface area.

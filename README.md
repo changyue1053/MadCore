@@ -34,14 +34,18 @@
 python3 tools/check_source_boundary.py
 ./gradlew -Pmadcore.target=jvm jvmTest
 ./gradlew -Pmadcore.target=jvm publishAllPublicationsToStagingRepository
-./gradlew -Pmadcore.target=android :madcore:bundleReleaseAar
+./gradlew -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
 bash tools/build_ios_xcframework.sh
 # Harmony 构建暂停，许可审查前不要运行 ohos 入口。
 ```
 
 开发坐标为 `com.mad.core:madcore:0.1.0-SNAPSHOT`，staging 仓按目标隔离为 `build/staging-repository/<madcore.target>`，例如 `jvm`、`android`、`ios`。这里的 publish 任务只写本地开发仓，不向远端发布。Harmony 工具执行目前暂停，等待独立 SDK 用途的许可适用审查；工具/SDK不随本仓库分发。
 
+Android 的 `assembleRelease` / `:madcore:bundleReleaseAar` 只构建 AAR，不会准备独立消费者所需的 Maven 依赖仓；使用上面的 publish 任务生成 `build/staging-repository/android`。`madcore` AAR 不是包含全部模块的 fat AAR。包含两个独立上层 AAR 和 HTTP/TLS fixture 的完整验收步骤见 [Android 独立消费者](examples/android-consumer/README.md)。
+
 同一 SNAPSHOT 坐标的 KMP 根元数据只描述该次构建配置的目标，不能把不同目标的暂存目录合并。按目标把 `-PmadcoreRepository` 指向对应子目录；旧版无目标后缀的暂存根目录不再使用，不要将它作为后备仓库。CI 各目标消费者也使用对应子目录。这是预览产物隔离，不是一个聚合三端的正式 Maven 发布仓。
+
+固定工具版本是本项目实际测试组合，不等于 JetBrains 官方支持组合；Kotlin2.2.21 配合 Gradle9.4.1 / AGP8.13.2 超出其表列支持范围，见 [工具链证据边界](docs/DELIVERY_GATES.md#tested-toolchain-versus-upstream-compatibility)。
 
 ## 必须保留的使用限制
 
