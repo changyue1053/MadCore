@@ -38,6 +38,10 @@ mkdir -p "$project"
 cp -R "$root/harmony/." "$project/"
 mkdir -p "$project/madcore/libs/arm64-v8a"
 cp "$root/madcore/build/bin/ohosArm64/releaseShared/"libmadcore{,_napi}.so "$project/madcore/libs/arm64-v8a/"
+if [[ "${MADCORE_COPIED_HTTP:-0}" == 1 ]]; then
+  cp "$root/madcore/build/bin/ohosArm64/releaseShared/libmadcore_copied_bridge.so" "$project/madcore/libs/arm64-v8a/"
+  python3 "$root/tools/prepare_copied_http_har.py" sdk "$project"
+fi
 (cd "$project" && ohpm install --all && hvigorw assembleHar --mode module -p module=madcore@default -p product=default -p buildMode=release --no-daemon)
 har=$(find "$project/madcore/build" -name '*.har' -type f -print -quit)
 test -n "$har"
@@ -122,6 +126,9 @@ rm -rf -- "$composition/alpha" "$composition/beta"
 # Also assemble an independent unsigned application, still using only the HAR.
 app="$work/app-consumer"
 cp -R "$root/examples/harmony-consumer" "$app"
+if [[ "${MADCORE_COPIED_HTTP:-0}" == 1 ]]; then
+  python3 "$root/tools/prepare_copied_http_har.py" app "$app"
+fi
 mkdir -p "$app/libs"
 cp "$har" "$app/libs/madcore.har"
 cp "$composition/alpha.har" "$composition/beta.har" "$app/libs/"

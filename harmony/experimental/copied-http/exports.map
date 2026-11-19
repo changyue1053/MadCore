@@ -4,6 +4,13 @@ MADCORE_1 {
         madcore_epoch_millis;
         madcore_json_object_valid;
         madcore_copied_http_link_probe;
+        madcore_copied_http_test_start;
+        madcore_copied_http_test_poll;
+        madcore_copied_http_test_cancel;
+        mc_http_begin_request;
+        mc_http_next_request_v2;
+        mc_http_complete_response;
+        mc_http_poll_response;
         mc_http_open;
         mc_http_close;
         mc_http_begin;

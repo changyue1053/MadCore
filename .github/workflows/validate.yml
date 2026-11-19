@@ -41,6 +41,7 @@ jobs:
           node --experimental-transform-types tools/test_harmony_storage.mjs
           node --experimental-transform-types tools/test_harmony_namespaced_storage.mjs
           node --experimental-transform-types tools/test_harmony_lifecycle.mjs
+          node --experimental-transform-types tools/test_copied_http_driver.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
       - run: python3 tools/check_publication_graph.py build/staging-repository
       - name: Consume only published artifacts from outside the checkout
@@ -181,7 +182,17 @@ jobs:
       - name: Check pinned fork marker is reachable (no credentials)
         run: curl --fail --location --connect-timeout 20 --max-time 60 --output /dev/null 'https://maven.eazytec-cloud.com/nexus/repository/maven-public/org/jetbrains/kotlin/multiplatform/org.jetbrains.kotlin.multiplatform.gradle.plugin/2.2.21-1.0.0/org.jetbrains.kotlin.multiplatform.gradle.plugin-2.2.21-1.0.0.pom'
       - name: Probe fork toolchain and compile only (not HAR or device support)
-        run: ./gradlew --no-daemon -Pmadcore.target=ohos compileKotlinOhosArm64 :madcore:linkReleaseSharedOhosArm64
+        shell: bash
+        run: |
+          if ! ./gradlew --no-daemon -Pmadcore.target=ohos compileKotlinOhosArm64 :madcore:linkReleaseSharedOhosArm64; then
+            # Same-runner evidence for previously missing public POMs; no fallback or retry.
+            for path in com/google/code/gson/gson/2.11.0/gson-2.11.0.pom org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.pom; do
+              for method in HEAD GET; do
+                curl --silent --show-error --request "$method" --connect-timeout 10 --max-time 20 --output /dev/null --write-out "$method $path HTTP %{http_code}\n" "https://repo.maven.apache.org/maven2/$path" || true
+              done
+            done
+            exit 1
+          fi
       - name: Verify independent C ABI library (not device execution)
         shell: bash
         run: |
@@ -199,7 +210,7 @@ jobs:
         timeout-minutes: 20
         run: bash tools/build_harmony_har.sh
 
-      - name: Link opt-in C-owned copied mailbox component (not RCP integration)
+      - name: Build opt-in copied RCP bridge (compile only, not device execution)
         run: |
           so=madcore/build/bin/ohosArm64/releaseShared/libmadcore.so
           if readelf --dyn-syms --wide "$so" | grep -E 'mc_http_|madcore_copied_http'; then
@@ -207,3 +218,5 @@ jobs:
           fi
           ./gradlew --no-daemon -Pmadcore.target=ohos -Pmadcore.copiedHttp=true :madcore:linkReleaseSharedOhosArm64
           python3 tools/check_copied_http_link.py "$so"
+          bash tools/build_copied_http_bridge.sh
+          MADCORE_COPIED_HTTP=1 bash tools/build_harmony_har.sh

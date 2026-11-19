@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Experimental copied GET mailbox. No Kotlin references, NAPI, platform work or
+/* Experimental copied HTTP mailbox. No Kotlin references, NAPI, platform work or
  * drain evidence. Mutex serializes lookup/copy/close. Caller buffers must remain
  * readable/writable for the duration of each call; never retained. All output
  * pointers must be distinct, and output buffers must not overlap them.
@@ -13,12 +13,43 @@ extern "C" {
  * Hard limits: 4 sessions, 8 unconsumed operations/session, URL 2048 bytes,
  * response 65536 bytes. URL bytes are nonempty ASCII HTTP(S) with no credentials,
  * fragments, whitespace or backslashes; stronger endpoint policy belongs to host.
- * This API is GET-only. URL output is length-delimited, NOT NUL-terminated.
+ * All byte arrays are length-delimited, NOT NUL-terminated. V2 headers are
+ * bounded JSON UTF-8 bytes; callers MUST validate encoding/header semantics.
+ * Legacy APIs are GET-only and retain their historical cleartext allowance.
  */
 enum { MC_HTTP_INVALID_ARGUMENT=-1, MC_HTTP_NOT_FOUND=-2, MC_HTTP_CAPACITY=-3,
        MC_HTTP_ID_EXHAUSTED=-4, MC_HTTP_BUFFER_TOO_SMALL=-5 };
 enum { MC_HTTP_PENDING=1, MC_HTTP_RESPONSE=2, MC_HTTP_FAILURE=3, MC_HTTP_CANCELLED=4 };
 enum { MC_HTTP_ERROR_IO=1, MC_HTTP_ERROR_TIMEOUT=2, MC_HTTP_ERROR_TOO_LARGE=3 };
+enum { MC_HTTP_GET=1, MC_HTTP_POST=2, MC_HTTP_PUT=3, MC_HTTP_DELETE=4 };
+struct mc_http_request {
+    int32_t method,url_length;
+    uint8_t url[2048];
+    int32_t headers_length;
+    uint8_t headers[16384];
+    int32_t body_length;
+    uint8_t body[65536];
+    int32_t max_response,connect_timeout_ms,read_timeout_ms,call_timeout_ms,allow_insecure;
+};
+struct mc_http_response {
+    int32_t status,headers_length;
+    uint8_t headers[16384];
+    int32_t body_length;
+    uint8_t body[65536];
+};
+/* V2 copies only declared bytes, zeroes unused output space. Header JSON is not
+ * parsed here. All timeouts must be 1..120000 ms. Request body <=65536, headers
+ * <=16384. GET/DELETE have no body; HTTP requires allow_insecure==1.
+ * next_request_v2: 1 dispatched, 0 none, negative error. poll_response: 1 ready,
+ * 0 pending, negative error; optional consume releases only terminal results.
+ * complete_response above per-call body cap publishes TooLarge instead.
+ * No delivery/cancellation result implies platform callback drain.
+ */
+int32_t mc_http_begin_request(int32_t session,const struct mc_http_request *request);
+int32_t mc_http_next_request_v2(int32_t session,int32_t *out_op,struct mc_http_request *request);
+int32_t mc_http_complete_response(int32_t session,int32_t operation,const struct mc_http_response *response);
+int32_t mc_http_poll_response(int32_t session,int32_t operation,int32_t *state,int32_t *error,
+                              struct mc_http_response *response,int32_t consume);
 int32_t mc_http_open(void);
 int32_t mc_http_close(int32_t session);
 int32_t mc_http_begin(int32_t session,const uint8_t *url,int32_t length,int32_t max_response);

@@ -1,10 +1,15 @@
-# Experimental copied HTTP mailbox
+# Experimental copied HTTP bridge
+
+Current real RCP integration and runtime limits: [experiment evidence](../../../docs/HARMONY_ASYNC_HTTP_EXPERIMENT.md).
+The component-only sections below record the earlier stage, not current coverage.
+
+## Historical component stage
 
 `copied_http.c` is one mutex-protected C object intended to be linked once into
 libmadcore, not separately into NAPI. `copied_http.h` is the length-delimited ABI.
 No Kotlin references or NAPI environments are stored. There are no platform
 callbacks, background workers, raw-pointer identifiers or heap allocations.
-Fixed storage is approximately 2.2 MiB for 4 sessions x 8 operation slots.
+V2 fixed storage is approximately 5 MiB for 4 sessions x 8 operation slots.
 
 Session and operation IDs increase monotonically across close/consume/reopen and
 fail at int32 exhaustion. No reset exists in the production API. Consume releases
@@ -75,7 +80,7 @@ Private unsigned test HAP SHA256:
 No test binaries/screenshots or SDK files are published. Test source adapter is
 not used by the default HAR. Compiler-generated adapter warnings were retained.
 
-### Required next complete slice
+### Original next-slice criteria (now exercised experimentally)
 
 Before actual transport integration, encode bounded request policy and response
 headers, define owner-loop pump/cancellation observation and per-environment close.

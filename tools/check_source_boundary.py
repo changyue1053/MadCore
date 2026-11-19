@@ -19,8 +19,11 @@ for path in list(ROOT.glob('core-*/src/**/*.kt')) + list(ROOT.glob('madcore/src/
     for dependency in re.findall(r'^import\s+([^\s;]+)', path.read_text(), re.M):
         platform_allowed = ()
         if ('madcore/src/ohosArm64Main/' in str(path.relative_to(ROOT)) or
-                'core-net/src/ohosCopiedHttp/' in str(path.relative_to(ROOT))):
+                'core-net/src/ohosCopiedHttp/' in str(path.relative_to(ROOT)) or
+                'madcore/src/ohosCopiedHttp/' in str(path.relative_to(ROOT))):
             platform_allowed = ('kotlinx.cinterop.',)
+        if 'core-net/src/ohosCopiedHttp/' in str(path.relative_to(ROOT)):
+            platform_allowed = ('kotlinx.cinterop.', 'platform.posix.')
         if 'core-storage/src/androidMain/' in str(path.relative_to(ROOT)):
             platform_allowed = ('android.content.',)
         if 'core-storage/src/iosMain/' in str(path.relative_to(ROOT)) or 'core-storage/src/iosTest/' in str(path.relative_to(ROOT)):

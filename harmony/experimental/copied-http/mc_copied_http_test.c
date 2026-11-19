@@ -45,7 +45,70 @@ static void *poll_racer(void *arg) {
     r->poll_result=mc_http_poll(r->session,r->op,&r->state,&r->status,&r->error,
                               r->body,sizeof(r->body),&r->length,1);return NULL;
 }
+static void test_v2(void) {
+    int32_t s=mc_http_open(),op,out,state,error,n,limit;uint8_t legacy_url[2048];
+    struct mc_http_request r={0},received;
+    struct mc_http_response response={0},result;
+    r.method=MC_HTTP_POST;r.url_length=(int32_t)sizeof(URL)-1;memcpy(r.url,URL,sizeof(URL)-1);
+    r.headers_length=9;memcpy(r.headers,"{\"x\":\"y\"}",9);
+    r.body_length=3;memcpy(r.body,"a\0b",3);r.max_response=8;
+    r.connect_timeout_ms=1;r.read_timeout_ms=120000;r.call_timeout_ms=120000;
+    assert(mc_http_begin_request(s,NULL)==MC_HTTP_INVALID_ARGUMENT);
+    op=mc_http_begin_request(s,&r);assert(op>0);
+    r.url[8]='X';r.headers[2]='z';r.body[0]='z';
+    assert(mc_http_next_request(s,&out,legacy_url,sizeof(legacy_url),&n,&limit)==MC_HTTP_INVALID_ARGUMENT);
+    assert(out==0);
+    assert(mc_http_poll_response(s,op,&state,&error,&result,1)==0 && state==MC_HTTP_PENDING);
+    assert(mc_http_next_request_v2(s,&out,&received)==1 && out==op);
+    assert(received.method==MC_HTTP_POST && received.body_length==3 && memcmp(received.body,"a\0b",3)==0);
+    assert(memcmp(received.headers,"{\"x\":\"y\"}",9)==0 && memcmp(received.url,URL,sizeof(URL)-1)==0);
+    assert(received.max_response==8 && received.connect_timeout_ms==1 && received.read_timeout_ms==120000);
+    assert(received.body[3]==0 && received.headers[9]==0);
+    response.status=201;response.headers_length=15;memcpy(response.headers,"{\"x\":[\"a\",\"b\"]}",15);
+    response.body_length=3;memcpy(response.body,"c\0d",3);
+    assert(mc_http_complete_response(s,op,&response)==1);
+    response.body[0]='z';response.headers[2]='z';
+    assert(mc_http_complete_response(s,op,&response)==0);
+    assert(mc_http_cancel(s,op)==0);
+    assert(mc_http_poll_response(s,op,&state,&error,&result,0)==1 && state==MC_HTTP_RESPONSE && error==0);
+    assert(result.status==201 && result.headers_length==15 && memcmp(result.headers,"{\"x\":[\"a\",\"b\"]}",15)==0);
+    assert(result.body_length==3 && memcmp(result.body,"c\0d",3)==0 && result.body[3]==0);
+    assert(mc_http_poll_response(s,op,&state,&error,&result,1)==1);
+    assert(mc_http_poll_response(s,op,&state,&error,&result,0)==MC_HTTP_NOT_FOUND);
+    r=received;
+    for(int method=1;method<=4;method++) {
+        r.method=method;r.body_length=(method==MC_HTTP_POST || method==MC_HTTP_PUT)?65536:0;
+        r.headers_length=16384;op=mc_http_begin_request(s,&r);assert(op>0);
+        assert(mc_http_next_request_v2(s,&out,&received)==1 && out==op && received.body_length==r.body_length);
+        response.status=200;response.headers_length=16384;response.body_length=9;
+        assert(mc_http_complete_response(s,op,&response)==1);
+        assert(mc_http_poll_response(s,op,&state,&error,&result,1)==1 && state==MC_HTTP_FAILURE && error==MC_HTTP_ERROR_TOO_LARGE);
+        assert(result.body_length==0 && result.headers_length==0);
+    }
+    r.method=MC_HTTP_GET;r.body_length=1;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);
+    r.method=MC_HTTP_DELETE;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);
+    r.body_length=0;r.method=5;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.method=1;
+    r.headers_length=16385;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.headers_length=0;
+    r.body_length=-1;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.body_length=0;
+    r.connect_timeout_ms=0;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.connect_timeout_ms=1;
+    r.read_timeout_ms=120001;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.read_timeout_ms=1;
+    r.call_timeout_ms=120001;assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.call_timeout_ms=1;
+    r.url_length=8;memcpy(r.url,"http://a",8);
+    assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.allow_insecure=2;
+    assert(mc_http_begin_request(s,&r)==MC_HTTP_INVALID_ARGUMENT);r.allow_insecure=1;
+    op=mc_http_begin_request(s,&r);assert(op>0);
+    assert(mc_http_complete_response(s,op,&response)==MC_HTTP_INVALID_ARGUMENT);
+    assert(mc_http_next_request_v2(s,&out,&received)==1);
+    response.headers_length=16385;assert(mc_http_complete_response(s,op,&response)==MC_HTTP_INVALID_ARGUMENT);
+    response.headers_length=0;response.body_length=65537;assert(mc_http_complete_response(s,op,&response)==MC_HTTP_INVALID_ARGUMENT);
+    assert(mc_http_cancel(s,op)==1);response.body_length=0;
+    assert(mc_http_complete_response(s,op,&response)==0);
+    assert(mc_http_poll_response(s,op,&state,&error,&result,1)==1 && state==MC_HTTP_CANCELLED);
+    assert(mc_http_close(s)==0);
+    assert(mc_http_next_request_v2(s,&out,&received)==MC_HTTP_NOT_FOUND && out==0);
+}
 int main(void) {
+    test_v2();
     int32_t ids[4];for(int i=0;i<4;i++){ids[i]=mc_http_open();assert(ids[i]>0);}
     assert(mc_http_open()==MC_HTTP_CAPACITY);
     int32_t s=ids[0],ops[8];

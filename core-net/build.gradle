@@ -1,6 +1,8 @@
 kotlin {
     sourceSets {
         jvmMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+        jvmTest.kotlin.srcDir('src/ohosCopiedHttpCodec/kotlin')
+        jvmTest.kotlin.srcDir('src/ohosCopiedHttpHostTest/kotlin')
         if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
             androidMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
         }
@@ -32,6 +34,7 @@ if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos' &&
     }
     kotlin {
         sourceSets.getByName('ohosArm64Main').kotlin.srcDir('src/ohosCopiedHttp/kotlin')
+        sourceSets.getByName('ohosArm64Main').kotlin.srcDir('src/ohosCopiedHttpCodec/kotlin')
         targets.getByName('ohosArm64').compilations.getByName('main').cinterops.create('copiedHttp') {
             defFile project.file('src/nativeInterop/cinterop/copiedHttp.def')
             includeDirs rootProject.file('harmony/experimental/copied-http')

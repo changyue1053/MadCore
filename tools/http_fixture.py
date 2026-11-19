@@ -44,6 +44,7 @@ class Handler(BaseHTTPRequestHandler):
         body = b'bad' if self.path == '/error' else b'hello'
         self.send_response(400 if self.path == '/error' else 200)
         self.send_header('Content-Length', str(len(body)))
+        if self.path == '/bridge-headers': self.send_header('X-Madcore-Test', 'present')
         self.end_headers()
         try: self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError): pass
@@ -60,6 +61,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self): self.method_echo()
     def do_DELETE(self): self.method_echo()
     def do_POST(self):
+        if self.path == '/echo':
+            if self.headers.get('X-Copied-Request') != 'probe':
+                self.send_error(400); return
+            self.method_echo(); return
         body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
         self.send_response(201)
         self.send_header('Content-Length', str(len(body)))
