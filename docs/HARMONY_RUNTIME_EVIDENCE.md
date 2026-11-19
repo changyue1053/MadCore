@@ -75,3 +75,44 @@ failure-injection host tests and add simulator close/late-completion tests.
 If accepted work cannot be safely drained after cancellation or teardown, stop
 at that specific lifetime blocker rather than shipping a watchdog-only adapter.
 Availability of a simulator does not itself resolve these ownership guarantees.
+
+## Follow-up: two independent upper HARs, real execution
+
+The same API23 simulator and SDK26 exploratory toolchain then ran the composition
+probe added alongside this report. Core binaries remain from source
+`36856cf193d321aab49ec4ed9f6466d27a9592cc`; only test-host generation changed.
+The two upper HARs were built in independent projects against the Core artifact.
+Both producer source directories were removed before the final application build.
+The host consumed only alpha.har, beta.har and one explicit Core HAR.
+Archive checks found thin upper HARs and exactly one Core native library pair.
+
+The UI reported `DUAL_HAR_RUNTIME_PASS + native smoke`, including all 11 native
+cases. The composition assertion checked returned-object identity (`===`),
+`instanceof NamespacedStringStore` against the host's Core import, upper-SDK
+mutation visible through both the shared object and its backend, host mutation,
+and removal visible through both references. Repeated execution also passed.
+The final factored test fixture was rebuilt, reinstalled and passed again.
+
+Final private evaluation HAP SHA256:
+`ec9cce1dd4371d3265b85dc2194be706a1b864d662429a8178c452a0656b49d5`.
+
+This closes the narrow same-version two-upper-HAR runtime gap above. It does NOT
+test transitive registry installation/version negotiation, multiple embedded
+Kotlin runtimes, API18 runtime, or Kotlin/ArkTS async bridging. Network/storage
+restart checks were not rerun for this composition-only update.
+
+## Async bridge decision after runtime access
+
+A worker-based native async adapter is not added in this stage. The installed
+NAPI declarations specify that started work cannot be cancelled and work cannot
+be deleted before completion. They do not establish completion ordering during
+environment teardown. A timeout cannot authorize freeing live callback state.
+
+The next candidate is an owner-loop-only, host-driven begin/complete token API:
+ArkTS owns asynchronous activity and sends bounded primitive results back; native
+code schedules no worker callback. Before retaining Kotlin continuations, this
+still needs explicit per-instance ownership, reentrant-close and finalizer
+ordering, Kotlin handle disposal/thread-entry proof, and late-result behavior
+without raw native pointer reuse. The existing synchronous HttpTransport must not
+be disguised as asynchronous. No production bridge claim follows from the current
+simulator tests.

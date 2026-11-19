@@ -125,7 +125,7 @@ cp -R "$root/examples/harmony-consumer" "$app"
 mkdir -p "$app/libs"
 cp "$har" "$app/libs/madcore.har"
 cp "$composition/alpha.har" "$composition/beta.har" "$app/libs/"
-python3 - "$app" <<'PYAPP'
+python3 - "$app" "$root/tools/harmony_upper_composition.ets" <<'PYAPP'
 import sys,pathlib,json
 p=pathlib.Path(sys.argv[1]);m=p/'entry/oh-package.json5';d=json.loads(m.read_text())
 d['dependencies']['madcore-upper-alpha']='file:../libs/alpha.har'
@@ -136,7 +136,8 @@ rootmeta=json.loads((p/'oh-package.json5').read_text());rootmeta['overrides']={'
 page=p/'entry/src/main/ets/pages/Index.ets'
 source=page.read_text()
 prefix="import { StringStore, NamespacedStringStore } from 'madcore';\nimport { alphaStore } from 'madcore-upper-alpha';\nimport { betaUse } from 'madcore-upper-beta';\n"
-probe="\nexport function upperComposition(backend: StringStore): StringStore { const shared: NamespacedStringStore = alphaStore(backend); return betaUse(shared); }\n"
+probe='\n'+pathlib.Path(sys.argv[2]).read_text()
+source=source.replace('const count: number = runNativeSmoke();', 'upperComposition();\n      const count: number = runNativeSmoke();').replace("this.status = 'Native boundary smoke passed on this device';", "this.status = 'DUAL_HAR_RUNTIME_PASS + native smoke';")
 page.write_text(prefix+source+probe)
 PYAPP
 # Test app supplies its SDK C++ runtime. This is ephemeral validation, not a published package.
