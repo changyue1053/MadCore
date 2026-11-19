@@ -76,7 +76,33 @@ export const rcp={Request,createSession(config:any){return new Session(config)}}
   assert.equal(blocked.state,3);assert.equal(log.fetches.length,before,'close/timeout must not release unsettled slots');
   unsettled[0].fetch.resolve({statusCode:200,headers:{}});await flush();
   const admitted=queue(fresh);fresh.pump();assert.equal(log.fetches.length,before+1);log.fetches.at(-1).resolve({statusCode:200,headers:{}});await flush();assert.equal(admitted.state,2);
-  // Remaining promises intentionally never settle. close clears timers; no drain asserted.
+  // The seven remaining slots stay reserved until each actual fake promise settles.
+  for (const item of unsettled.slice(1)) item.fetch.resolve({statusCode:200,headers:{}});
+  await flush();
+  const recovered = [];
+  for (let i=0;i<8;i++) recovered.push(queue(fresh));
+  const recoveryStart = log.fetches.length;
+  fresh.pump(); // all eight dispatch before yielding to any promise handler
+  assert.equal(log.fetches.length,recoveryStart+8,'all eight application slots must recover');
+  assert.equal(fresh.active.size,8);
+  for (const {op} of unsettled) assert.equal(log.sessions.get(fresh.session).has(op.wire.operation),false);
+  for (const fetch of log.fetches.slice(recoveryStart)) {
+    fetch.request.destination(new Uint8Array([7]).buffer);
+    fetch.resolve({statusCode:200,headers:{}});
+  }
+  await flush();
+  for (const op of recovered) {
+    assert.equal(op.state,2);
+    assert.deepEqual([...new Uint8Array(op.result.body)],[7]);
+  }
+  assert.equal(fresh.active.size,0);
+  // Another complete batch proves all eight finally paths released their quota.
+  const again=[];
+  for(let i=0;i<8;i++)again.push(queue(fresh));
+  const againStart=log.fetches.length;fresh.pump();
+  assert.equal(log.fetches.length,againStart+8);
+  for(const fetch of log.fetches.slice(againStart))fetch.resolve({statusCode:200,headers:{}});
+  await flush();assert.ok(again.every(op=>op.state===2));assert.equal(fresh.active.size,0);
   fresh.close();
   console.log('Copied HTTP exact-source host mocks passed; not Harmony execution or drain evidence');
 } finally {

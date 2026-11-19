@@ -142,6 +142,71 @@ async function waitResult(driver: CopiedHttpDriver, id: number, scenario: number
   throw new Error('Copied HTTP verification wait exceeded');
 }
 
+function checkRecovery(value: boolean, stage: string): void {
+  if (!value) throw new Error('Copied HTTP slot recovery failed: ' + stage);
+}
+async function waitActualSettlements(stage: string): Promise<void> {
+  const deadline = Date.now() + 10000;
+  while (platformOutstanding !== 0) {
+    if (Date.now() >= deadline) throw new Error('Copied HTTP slot recovery settlement deadline: ' + stage);
+    await pause(20);
+  }
+}
+
+// Counts accepted unsettled fetch Promises, NOT physical resources or native drain.
+// All eight requests are queued before a single pump; no await permits settlement
+// between dispatch and the immediate capacity assertions.
+async function verifyEightSlotRecovery(http: string): Promise<void> {
+  await waitActualSettlements('baseline');
+  const a = new CopiedHttpDriver();
+  let b: CopiedHttpDriver | undefined = undefined;
+  try {
+    const oldIds: number[] = [];
+    for (let n: number = 0; n < 8; n++) {
+      const id = bridge.startTest(a.session, http + '/slow', 12);
+      checkRecovery(id > 0, 'A queue'); oldIds.push(id);
+    }
+    a.pump();
+    checkRecovery(platformOutstanding === 8, 'A eight accepted Promises');
+    a.close();
+    checkRecovery(platformOutstanding === 8, 'close retains unsettled quota');
+    for (const id of oldIds) {
+      checkRecovery(bridge.state(a.session, id) === -2, 'closed A IDs');
+      checkRecovery(bridge.complete(a.session, id, 200, '{}', new ArrayBuffer(0)) === -2, 'closed A late completion');
+    }
+    b = new CopiedHttpDriver();
+    checkRecovery(b.session !== a.session, 'fresh session ID');
+    const blocked = bridge.startTest(b.session, http + '/ok', 1);
+    checkRecovery(blocked > 0, 'B has free C capacity');
+    b.pump();
+    // Poll scenario9 checks the redacted Io result; this request itself is /ok,
+    // so failure is quota rejection, not a TLS probe or network response.
+    checkRecovery(bridge.pollTest(b.session, blocked, 9) === 1, 'B quota rejection');
+    checkRecovery(platformOutstanding === 8, 'rejection retains eight slots');
+    for (const id of oldIds) checkRecovery(bridge.state(b.session, id) === -2, 'B rejects stale A IDs before settlement');
+    await waitActualSettlements('A cancellation');
+    const freshIds: number[] = [];
+    for (let n: number = 0; n < 8; n++) {
+      const id = bridge.startTest(b.session, http + '/slow', 12);
+      checkRecovery(id > 0, 'B queue eight after settlement'); freshIds.push(id);
+    }
+    b.pump();
+    checkRecovery(platformOutstanding === 8, 'B all eight slots recovered');
+    for (const id of freshIds) {
+      try { await waitResult(b, id, 12); }
+      catch (_) { throw new Error('Copied HTTP slot recovery failed: B slow response'); }
+    }
+    await waitActualSettlements('B responses');
+    for (const id of oldIds) {
+      checkRecovery(bridge.state(b.session, id) === -2, 'B rejects stale A IDs after settlement');
+      checkRecovery(bridge.complete(a.session, id, 200, '{}', new ArrayBuffer(0)) === -2, 'late A cannot revive after recovery');
+    }
+  } finally {
+    a.close();
+    if (b !== undefined) b.close();
+  }
+}
+
 /** Explicit loopback-only test harness. Production adapter itself has no hard-coded destinations. */
 export async function runCopiedHttpDeviceVerification(http: string, tls: string): Promise<void> {
   check(/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(http));
@@ -171,8 +236,9 @@ export async function runCopiedHttpDeviceVerification(http: string, tls: string)
       check(bridge.state(fresh.session, closing) === -2);
       const id = bridge.startTest(fresh.session, http + '/ok', 1); check(id > 0); fresh.pump();
       await waitResult(fresh, id, 1);
-      await pause(1200); // allows a late slow RCP settlement; not an assertion of platform drain
+      await waitActualSettlements('single-session close'); // Promise settlement only, not native drain
       check(bridge.state(fresh.session, closing) === -2);
     } finally { fresh.close(); }
   } finally { driver.close(); }
+  await verifyEightSlotRecovery(http);
 }

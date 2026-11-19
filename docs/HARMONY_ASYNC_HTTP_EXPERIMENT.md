@@ -87,3 +87,36 @@ and an incremental HAR build retained old bytecode. The clean rebuild verified
 `/bridge-echo` in the compiled HAR before installation. Use fresh isolated copies
 or `hvigorw clean` when changing root-level ETS sources. No failed run is counted
 as evidence. Full corrected-head CI remains a separate required gate.
+
+## Eight-slot close/reopen recovery evidence
+
+After a9f13401 passed all four jobs in CI run 44459298311, the finite harness was
+extended without changing production dispatch or drain semantics. On the same
+Pura90/API23 simulator and toolchain, a clean rebuilt private HAP with SHA256
+`527a374589286746e11f78074bf3b2e0e3400ae989eb437231803ccf73b3be2b`
+passed the existing eleven cases plus the following sequence, twice in the same
+ArkTS app environment without restarting between runs:
+
+1. Wait for actual Promise-finally accounting to reach zero, with a test deadline.
+2. Queue eight slow requests in A before one synchronous pump; require eight
+   accepted, unsettled fetch Promises.
+3. Close A; the outstanding quota must remain eight immediately. Its IDs are
+   invalid and synthetic late completion cannot recreate them.
+4. Open B with free C slots; its first request must fail because the shared fetch
+   quota is still full. No timeout or close manually decrements that quota.
+5. Observe actual settlements reducing the quota to zero. Queue and dispatch eight
+   slow-success calls in B before yielding; require all eight slots admitted.
+6. Receive and check all eight Kotlin HTTP results and eventual zero outstanding
+   Promise count; old A IDs remain invalid before and after recovery.
+
+The UI again reported `COPIED_RCP_KOTLIN_PASS`. Across these two runs, TLS attempts
+were two, TLS HTTP requests zero, and redirect target requests zero. Test fixture
+and reverse ports were removed. Exact-source host mocks independently exercise
+single-slot recovery, full recovery and a further full batch. The deadline only
+fails the test; it never releases capacity or manufactures settlement.
+
+This demonstrates **application admission quota recovery**, not eight concurrent
+server connections, physical-resource reclamation, environment destruction or
+native callback drain. RCP listener ordering was not asserted. `isDrained` stays
+false. Official cancel/close/Promise documentation supplies no native teardown
+ordering guarantee; runtime traces alone cannot supply that guarantee either.

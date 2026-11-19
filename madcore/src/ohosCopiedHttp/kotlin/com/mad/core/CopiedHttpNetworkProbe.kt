@@ -9,7 +9,7 @@ import kotlinx.cinterop.readBytes
 /** Device harness only: value IDs cross the ABI; no Kotlin call object is retained by ArkTS. */
 @CName("madcore_copied_http_test_start")
 fun copiedHttpTestStart(session: Int, urlBytes: CPointer<ByteVar>?, length: Int, scenario: Int): Int = try {
-    require(urlBytes != null && length in 1..2048 && scenario in 1..11)
+    require(urlBytes != null && length in 1..2048 && scenario in 1..12)
     val url = urlBytes.readBytes(length).decodeToString(throwOnInvalidSequence = true)
     // This harness must never turn an arbitrary string into a network destination.
     val protocol = if (scenario == 9) "https" else "http"
@@ -17,7 +17,7 @@ fun copiedHttpTestStart(session: Int, urlBytes: CPointer<ByteVar>?, length: Int,
         1 -> setOf("ok")
         2 -> setOf("bridge-echo")
         10, 11 -> setOf("echo")
-        3, 5 -> setOf("slow")
+        3, 5, 12 -> setOf("slow")
         4 -> setOf("chunked")
         6 -> setOf("error")
         7 -> setOf("bridge-headers")
@@ -45,7 +45,7 @@ fun copiedHttpTestStart(session: Int, urlBytes: CPointer<ByteVar>?, length: Int,
 
 @CName("madcore_copied_http_test_poll")
 fun copiedHttpTestPoll(session: Int, operation: Int, scenario: Int): Int = try {
-    require(scenario in 1..11)
+    require(scenario in 1..12)
     val result = CopiedAsyncHttpTransport.resumeCall(session, operation).poll()
     if (result == null) 0 else {
         val ok = when (scenario) {

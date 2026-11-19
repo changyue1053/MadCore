@@ -2,8 +2,10 @@
 
 `core-net` now contains a separate `AsyncHttpTransport`/`AsyncHttpCall` contract
 and the adapter-side `AsyncHttpExchange` delivery cell. It does not change the
-blocking `HttpTransport` API. There is **no platform async adapter** and no
-Kotlin/ArkTS bridge in this change. Existing RCP remains an independent ArkTS API.
+blocking `HttpTransport` API. The original contract-only stage had no platform adapter. An opt-in experimental
+[Kotlin/RCP copied bridge](HARMONY_ASYNC_HTTP_EXPERIMENT.md) now exercises delivery;
+it is not a default supported adapter and does not attest platform drain.
+The independent ArkTS RCP API remains available.
 
 ## Ownership and cancellation
 
@@ -31,7 +33,7 @@ not bound an adapter's allocations, response headers, global number of calls or
 network buffers. Those must be bounded separately before a real bridge is safe.
 Response contents may be sensitive; only Failure's code is sanitized.
 
-## Required adapter behavior, not yet platform-tested
+## Required adapter behavior and remaining lifecycle gate
 
 - Prompt nonblocking start; no blocking wait on the owner loop.
 - Reject insecure HTTP unless explicitly allowed, and oversized requests before I/O.
@@ -49,7 +51,7 @@ cancellation before/after completion, consumed cancellation signal, timeout vers
 drain, premature drain rejection, body-cap rejection, copied data and independent
 instances. These test the serialized cell, not networking, scheduling or NAPI.
 
-Before a copied-result Harmony implementation, specify bounded wire encoding,
+The original integration criteria were to specify bounded wire encoding,
 operation routing/instance generations, owner-loop pumping and cancellation
 observation. Show a real Kotlin consumer receiving an RCP result, not only an
 ArkTS Promise calling a C token registry. No retained Kotlin continuation should
