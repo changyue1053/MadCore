@@ -43,13 +43,13 @@ jobs:
           node --experimental-transform-types tools/test_harmony_lifecycle.mjs
           node --experimental-transform-types tools/test_copied_http_driver.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
-      - run: python3 tools/check_publication_graph.py build/staging-repository
+      - run: python3 tools/check_publication_graph.py build/staging-repository/jvm
       - name: Consume only published artifacts from outside the checkout
         shell: bash
         run: |
           consumer=$(mktemp -d)
           cp -R examples/jvm-consumer/. "$consumer/"
-          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" run writeRuntimeClasspath
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository/jvm" run writeRuntimeClasspath
           python3 tools/check_jvm_classpath.py "$consumer/runtime-classpath.json"
   android:
     runs-on: ubuntu-latest
@@ -63,7 +63,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
-      - run: python3 tools/check_publication_graph.py build/staging-repository
+      - run: python3 tools/check_publication_graph.py build/staging-repository/android
       - name: Verify release AARs exist
         run: |
           for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
@@ -79,7 +79,7 @@ jobs:
           cp -R examples/android-consumer/. "$consumer/"
           upper=$(mktemp -d)
           cp -R examples/android-upper-sdks/. "$upper/"
-          ./gradlew --no-daemon -p "$upper" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" assembleRelease
+          ./gradlew --no-daemon -p "$upper" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository/android" assembleRelease
           mkdir -p "$consumer/app/libs"
           cp "$upper/alpha/build/outputs/aar/alpha-release.aar" "$consumer/app/libs/"
           cp "$upper/beta/build/outputs/aar/beta-release.aar" "$consumer/app/libs/"
@@ -93,7 +93,7 @@ jobs:
             tail -n 80 "$RUNNER_TEMP/android-http-fixture.log"
             exit 1
           fi
-          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository" :app:assembleDebug :app:pixel2api30DebugAndroidTest
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository/android" :app:assembleDebug :app:pixel2api30DebugAndroidTest
           python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"
   ios:
     runs-on: macos-15
@@ -124,7 +124,7 @@ jobs:
         shell: bash
         run: |
           ./gradlew --no-daemon -Pmadcore.target=ios :core-storage:publishAllPublicationsToStagingRepository
-          bash tools/test_ios_kotlin_composition.sh build "$GITHUB_WORKSPACE/build/staging-repository" "$RUNNER_TEMP/kotlin-composition"
+          bash tools/test_ios_kotlin_composition.sh build "$GITHUB_WORKSPACE/build/staging-repository/ios" "$RUNNER_TEMP/kotlin-composition"
       - name: Start TLS fixture before simulator boot
         timeout-minutes: 2
         shell: bash

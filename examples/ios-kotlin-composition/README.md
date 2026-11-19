@@ -10,7 +10,7 @@ From repository root on macOS with the existing Kotlin/Native prerequisites:
 
 ```sh
 ./gradlew --no-daemon -Pmadcore.target=ios :core-storage:publishAllPublicationsToStagingRepository
-bash tools/test_ios_kotlin_composition.sh build "$PWD/build/staging-repository" "$RUNNER_TEMP/kotlin-composition"
+bash tools/test_ios_kotlin_composition.sh build "$PWD/build/staging-repository/ios" "$RUNNER_TEMP/kotlin-composition"
 # Boot an arm64 iOS Simulator and export MADCORE_IOS_SIMULATOR_UDID separately.
 bash tools/test_ios_kotlin_composition.sh run "$RUNNER_TEMP/kotlin-composition"
 ```

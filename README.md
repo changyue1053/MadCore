@@ -36,10 +36,12 @@ python3 tools/check_source_boundary.py
 ./gradlew -Pmadcore.target=jvm publishAllPublicationsToStagingRepository
 ./gradlew -Pmadcore.target=android :madcore:bundleReleaseAar
 bash tools/build_ios_xcframework.sh
-./gradlew -Pmadcore.target=ohos :madcore:linkReleaseSharedOhosArm64
+# Harmony 构建暂停，许可审查前不要运行 ohos 入口。
 ```
 
-开发坐标为 `com.mad.core:madcore:0.1.0-SNAPSHOT`，staging 仓位于 `build/staging-repository`。这里的 publish 任务只写本地开发仓，不向远端发布。官方 Harmony CLI 构建只使用已授权的固定版本；工具/SDK不随本仓库分发。
+开发坐标为 `com.mad.core:madcore:0.1.0-SNAPSHOT`，staging 仓按目标隔离为 `build/staging-repository/<madcore.target>`，例如 `jvm`、`android`、`ios`。这里的 publish 任务只写本地开发仓，不向远端发布。Harmony 工具执行目前暂停，等待独立 SDK 用途的许可适用审查；工具/SDK不随本仓库分发。
+
+同一 SNAPSHOT 坐标的 KMP 根元数据只描述该次构建配置的目标，不能把不同目标的暂存目录合并。按目标把 `-PmadcoreRepository` 指向对应子目录；旧版无目标后缀的暂存根目录不再使用，不要将它作为后备仓库。CI 各目标消费者也使用对应子目录。这是预览产物隔离，不是一个聚合三端的正式 Maven 发布仓。
 
 ## 必须保留的使用限制
 

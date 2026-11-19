@@ -58,7 +58,7 @@ subprojects {
         repositories {
             maven {
                 name = 'staging'
-                url = rootProject.layout.buildDirectory.dir('staging-repository')
+                url = rootProject.layout.buildDirectory.dir("staging-repository/${target}")
             }
         }
     }

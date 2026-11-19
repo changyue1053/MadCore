@@ -10,7 +10,7 @@ The emulator reaches it through 10.0.2.2. Only the debug manifest permits cleart
 production SDK defaults and the release manifest forbid it.
 
 Use Gradle 9.4.1, JDK 21, Android SDK 36 and an available licensed API 30 standard AOSP x86_64 image:
-`gradle -PmadcoreRepository=/absolute/path/to/staging-repository :app:pixel2api30DebugAndroidTest`
+`gradle -PmadcoreRepository=/absolute/path/to/staging-repository/android :app:pixel2api30DebugAndroidTest`
 
 This is not physical-device, public-TLS, minimum-API or UI acceptance coverage.
 
