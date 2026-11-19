@@ -1,3 +1,23 @@
+kotlin {
+    sourceSets {
+        jvmMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+        if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
+            androidMain.kotlin.srcDir('src/jvmAndAndroidMain/kotlin')
+        }
+    }
+}
+
+if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
+    kotlin.targets.getByName('iosSimulatorArm64').testRuns.getByName('test').executionTask.configure {
+        def simulator = providers.environmentVariable('MADCORE_IOS_SIMULATOR_UDID').orNull
+        if (simulator != null) {
+            device.set(simulator)
+            standalone.set(false) // CI explicitly boots the full simulator for Foundation networking.
+        }
+        timeout.set(java.time.Duration.ofMinutes(5))
+    }
+}
+
 // Experimental opt-in: not part of default production publications.
 if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos' &&
     providers.gradleProperty('madcore.copiedHttp').getOrElse('false') == 'true') {
