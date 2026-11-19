@@ -1,6 +1,14 @@
+// Non-Android builds must not resolve the Android plugin or its transitive toolchain.
+// Keep the same pinned AGP for Android; apply it to subprojects below.
+buildscript {
+    if (project.providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
+        repositories { google(); mavenCentral() }
+        dependencies { classpath 'com.android.tools.build:gradle:8.13.2' }
+    }
+}
+
 plugins {
     id 'org.jetbrains.kotlin.multiplatform' apply false
-    id 'com.android.library' apply false
 }
 
 def target = providers.gradleProperty('madcore.target').getOrElse('jvm')
