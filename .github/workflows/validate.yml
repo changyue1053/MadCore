@@ -167,6 +167,9 @@ jobs:
         run: |
           if [ -n "${MADCORE_FIXTURE_PID:-}" ]; then kill "$MADCORE_FIXTURE_PID" 2>/dev/null || true; fi
   harmony-native-har:
+    # Paused pending exact SDK/toolchain license applicability review for a reusable SDK.
+    # Keep prior evidence; restore only after review. Skipped is not fresh Harmony validation.
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
