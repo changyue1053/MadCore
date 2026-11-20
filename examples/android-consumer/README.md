@@ -84,3 +84,46 @@ private. Assembly alone does not count as an Android runtime or API24 result.
 The build-only app has no temporary fixture trust and is not a substitute for
 the full device runner. This mode never dispatches to a device and does not
 change the separate CI probe's restrictions.
+
+## Exact runtime version and optional fixed-version rehearsal
+
+The existing shared-Core instrumentation case requires an independent
+`madcoreExpectedCoreVersion` runner argument and compares it to the
+non-constant `MadCoreInfo.version` read from the launched SDK. The default
+expectation is `0.1.0-SNAPSHOT`. This check does not read the producer
+manifest, infer a version from artifacts, or add a ninth test. The independent
+consumer still declares only its two upper SDKs; the same expected coordinate
+must resolve to the only Core version on all four classpaths.
+
+For a separate, deliberately authorized API30 rehearsal, first archive an
+exact revision containing this gate into disposable scratch. Change only that
+copy's `SDK-MODULES.json` producer version to a chosen token of form
+`X.Y.Z-rehearsal.N`. Keep the consumer side independent: pass that **chosen
+token** explicitly from the test command, never by reading it back from a
+published POM or from the SDK. Do not mix with a preexisting snapshot stage.
+
+```sh
+# From the disposable source tree, with the reviewed token independently set.
+test ! -e build/staging-repository/android
+./gradlew --no-daemon -Pmadcore.target=android -Pandroid.builder.sdkDownload=false \
+  publishAllPublicationsToStagingRepository
+python3 tools/check_publication_graph.py build/staging-repository/android
+bash tools/test_android_maven_consumer.sh "$PWD/build/staging-repository/android" \
+  --expected-version "$expected"
+```
+
+Use only a previously authorized and installed SDK 36, Build Tools 35.0.0,
+working Linux x86_64 KVM, and the stock installed API30 x86_64 AOSP image
+with the existing scoped managed-emulator setup. The runner rejects a missing image rather than
+requesting installation for this rehearsal. The existing managed API30
+fixture flow creates its temporary CA, stages trust only in the disposable
+Debug app, and runs all eight cases in that invocation. No standalone reused
+APK is given broad trust. Clean the disposable source and its temporary host
+outputs afterward, without uploading artifacts. The hosted API24 route is not
+expanded to non-snapshot rehearsal.
+
+Append `--build-only` if no device execution is intended. This checks
+composition and assembles APKs, but does not run the in-app version assertion
+or start the HTTPS fixture and is not runtime evidence. Raw instrumentation
+commands without the explicit runner argument fail rather than silently using
+a default at runtime.

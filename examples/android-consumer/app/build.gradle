@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application' version '8.13.2'
     id 'org.jetbrains.kotlin.android' version '2.2.21'
 }
+// This is a consumer pin, never read from the producer manifest or APK.
+def expectedCoreVersion = providers.gradleProperty('madcoreExpectedCoreVersion').getOrElse('0.1.0-SNAPSHOT')
+if (expectedCoreVersion.length() > 64 ||
+    (expectedCoreVersion != '0.1.0-SNAPSHOT' &&
+     !(expectedCoreVersion ==~ /(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-rehearsal\.[1-9][0-9]*/))) {
+    throw new GradleException('Expected a snapshot or exact disposable MadCore rehearsal version')
+}
 android {
     namespace 'com.mad.consumer'
     compileSdk 36
@@ -12,6 +19,7 @@ android {
         versionCode 1
         versionName '0.1'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        testInstrumentationRunnerArguments['madcoreExpectedCoreVersion'] = expectedCoreVersion
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
@@ -63,7 +71,7 @@ tasks.register('verifyPublishedComposition') {
             def upper = artifacts.findAll { it.moduleVersion.id.group == 'example.madcore.upper' }
             def coreNames = core.collect { it.moduleVersion.id.name }
             if (coreNames.sort() != expectedCore ||
-                !core.every { it.extension == 'aar' && it.moduleVersion.id.version == '0.1.0-SNAPSHOT' }) {
+                !core.every { it.extension == 'aar' && it.moduleVersion.id.version == expectedCoreVersion }) {
                 throw new GradleException("$configName must contain one Android AAR per production Core module: $core")
             }
             if (upper.collect { it.moduleVersion.id.name }.sort() != ['alpha', 'beta'] ||

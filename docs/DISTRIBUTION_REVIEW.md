@@ -8,7 +8,7 @@ this document. No new agreement is accepted.
 | --- | --- | --- |
 | Project source license | README states no license selected; no project LICENSE/NOTICE present; ten extracted files have provenance | Owner chooses intended downstream reuse terms and confirms rights to license all included source |
 | Third-party notices | Gradle wrapper scripts contain Apache-2.0 headers | Inventory applicable licenses/notices and include required texts; do not replace upstream attribution |
-| Pinned Huawei tools/SDK | Build pins CLI 5.1.0.840; recorded SDK 5.1.0.125/API18; build-use authorization exists | Recover exact version-specific bundled agreements/notices and distinguish tool use from redistributable runtime permissions |
+| Pinned Huawei tools/SDK | Build pins CLI 5.1.0.840; recorded SDK 5.1.0.125/API18; build-use authorization exists | Review the recovered pinned archive notices and resolve tool-use scope separately from runtime redistribution |
 | Native binary contents | HAR includes generated libmadcore.so and libmadcore_napi.so; libc++_shared.so is copied only into the temporary HAP consumer | Inventory compiler/runtime code actually linked/copied into each proposed release; map each component to pinned notices and redistribution terms |
 | CPF runtime | Fork version 2.2.21-1.0.0; current upstream README lists Apache-2.0 and additional runtime components | Verify pinned artifact contents, including common-rt/Breakpad where present; current upstream prose is not a pinned inventory |
 
@@ -28,6 +28,39 @@ Reference material (reviewed 2026-11-18):
 Until these items are resolved, keep the draft PR/evaluation workflow and do not
 publish binary releases or claim production distribution approval. This review
 identifies evidence gaps; it is not a legal opinion.
+
+## Harmony release hold (read-only evidence)
+
+The Linux CI lane used DevEco CLI `5.1.0.840` with reported SDK
+`5.1.0.125`/API 18. The historical archive inspection verified the CLI ZIP
+and retained the root LICENSE/NOTICE and OpenHarmony native notice evidence
+in [run 44251615735](https://github.com/changyue1053/MadCore/actions/runs/44251615735/job/134623414953).
+It does not resolve terms applicability. The separate
+[API 23 simulator evidence](HARMONY_RUNTIME_EVIDENCE.md) used DevEco Studio
+26.0.0 / SDK `26.0.0.105` and is not evidence for the Linux SDK, another
+host runtime, or a minimum support floor.
+
+- **Default HAR:** packages `libmadcore.so` and `libmadcore_napi.so` with
+  ArkTS. It contains neither the experimental bridge nor `libc++_shared.so`.
+  The native build uses CPF Kotlin/Native `2.2.21-1.0.0`; the NAPI build also
+  uses the fork's `sysroot-ohos-aarch64-6.0.2.640-04`. The two project-built
+  SOs still need a pinned inventory of any incorporated third-party objects.
+- **Private test HAP:** adds AArch64 `libc++_shared.so` from
+  `sdk/default/openharmony/native` in the pinned CLI. It is a host payload,
+  not part of the default HAR. The historical Core ELF lists that runtime in
+  `DT_NEEDED`; this does not identify statically linked runtime objects.
+  See [historical packaging inventory](https://github.com/changyue1053/MadCore/actions/runs/44463243979/job/135354815561).
+
+While the build and distribution hold stands, reconcile existing logs and
+retained provenance only. Record the exact notices and their source entry
+paths, then track three separate open questions: tool-use applicability to the
+reusable Harmony output in this mixed-platform source tree; the exact host
+runtime file-to-terms mapping under the referenced
+[OpenHarmony SDK agreement](https://downloads.openharmony.cn/sdk/license/OpenHarmony-SDK.txt)
+and native notice; and the linked CPF/compiler components and their matching
+pinned notices. Mark missing artifacts, link maps or authorities as missing.
+Do not infer clearance from a generic license, a missing archive entry, or a
+historical build authorization.
 
 ## Build evidence collection
 

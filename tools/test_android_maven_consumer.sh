@@ -4,18 +4,46 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 usage() {
-  echo "Usage: bash tools/test_android_maven_consumer.sh /absolute/path/to/staging-repository/android [--connected-api24|--build-only]" >&2
+  echo "Usage: bash tools/test_android_maven_consumer.sh /absolute/path/to/staging-repository/android [--connected-api24|--build-only] [--expected-version X.Y.Z-rehearsal.N]" >&2
   exit 2
 }
-if [[ $# -lt 1 || $# -gt 2 || "$1" != /* || ! -d "$1" ]]; then
-  usage
-fi
+[[ $# -ge 1 && "$1" == /* && -d "$1" ]] || usage
 repository=$1
+shift
 mode=--managed-api30
-if [[ $# == 2 ]]; then mode=$2; fi
+snapshot=0.1.0-SNAPSHOT
+expected=$snapshot
+explicit_expected=false
+while (( $# )); do
+  case "$1" in
+    --connected-api24|--build-only)
+      [[ "$mode" == --managed-api30 ]] || usage
+      mode=$1
+      shift
+      ;;
+    --expected-version)
+      [[ $# -ge 2 && "$explicit_expected" == false ]] || usage
+      expected=$2
+      explicit_expected=true
+      shift 2
+      ;;
+    *) usage ;;
+  esac
+done
+if [[ "$expected" != "$snapshot" ]]; then
+  export LC_ALL=C
+  component='(0|[1-9][0-9]*)'
+  [[ ${#expected} -le 64 && "$expected" =~ ^$component\.$component\.$component-rehearsal\.[1-9][0-9]*$ ]] || usage
+  # Do not expand the constrained hosted minimum-SDK probe's runtime scope.
+  [[ "$mode" != --connected-api24 ]] || usage
+fi
+gradle_flags=("-PmadcoreExpectedCoreVersion=$expected")
+if [[ "$expected" != "$snapshot" ]]; then
+  gradle_flags+=(-Pandroid.builder.sdkDownload=false)
+fi
 test_task=:app:pixel2api30DebugAndroidTest
 case "$mode" in
-  --managed-api30) [[ $# == 1 ]] || usage ;;
+  --managed-api30) ;;
   --connected-api24)
     test "${GITHUB_ACTIONS:-}" = true
     test "${RUNNER_ENVIRONMENT:-}" = github-hosted
@@ -27,6 +55,22 @@ case "$mode" in
 esac
 if [[ "$mode" != --build-only ]]; then
   test -r /dev/kvm && test -w /dev/kvm || exit 1
+  if [[ "$expected" != "$snapshot" ]]; then
+    sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
+    image="$sdk/system-images/android-30/default/x86_64"
+    if [[ "$(uname -sm)" != "Linux x86_64" || -z "$sdk" ||
+          ! -s "$sdk/platforms/android-36/android.jar" ||
+          ! -x "$sdk/build-tools/35.0.0/zipalign" ||
+          ! -x "$sdk/emulator/emulator" || ! -x "$sdk/platform-tools/adb" ||
+          ! -s "$image/package.xml" || ! -s "$image/system.img" ]]; then
+      echo 'Fixed-version runtime requires an already installed API30 standard AOSP image and SDK36 tools' >&2
+      exit 1
+    fi
+    if [[ -n "${ANDROID_SDK_ROOT:-}" && "$(realpath -e "$sdk")" != "$(realpath -e "$ANDROID_SDK_ROOT")" ]]; then
+      echo 'Fixed-version runtime requires one consistent Android SDK root' >&2
+      exit 1
+    fi
+  fi
 fi
 work=$(mktemp -d)
 echo "Android Maven consumer diagnostics and test results: $work"
@@ -47,7 +91,7 @@ for name in alpha beta; do
   cp -R "examples/android-upper-sdks/$name/src" "$upper/$name/"
 done
 
-./gradlew --no-daemon -p "$upper" -PmadcoreRepository="$repository" \
+./gradlew --no-daemon "${gradle_flags[@]}" -p "$upper" -PmadcoreRepository="$repository" \
   -PupperRepository="$upper_repo" \
   :alpha:publishReleasePublicationToUpperStagingRepository \
   :beta:publishReleasePublicationToUpperStagingRepository
@@ -64,7 +108,7 @@ python3 tools/check_upper_aars.py "$thin"
 rm -rf -- "$upper" "$thin"
 
 if [[ "$mode" == --build-only ]]; then
-  ./gradlew --no-daemon --no-configuration-cache -p "$consumer" -PmadcoreRepository="$repository" \
+  ./gradlew --no-daemon --no-configuration-cache "${gradle_flags[@]}" -p "$consumer" -PmadcoreRepository="$repository" \
     -PupperRepository="$upper_repo" :app:verifyPublishedComposition \
     :app:assembleDebug :app:assembleDebugAndroidTest
   host="$consumer/app/build/outputs/apk/debug/app-debug.apk"
@@ -123,7 +167,7 @@ if [[ "$test_task" == :app:connectedDebugAndroidTest ]]; then
   test "$(timeout 10 "$adb" devices | awk 'NR > 1 && NF {print $1, $2}')" = "$ANDROID_SERIAL device"
   test "$(timeout 10 "$adb" -s "$ANDROID_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')" = 24
 fi
-./gradlew --no-daemon --no-configuration-cache -p "$consumer" -PmadcoreRepository="$repository" \
+./gradlew --no-daemon --no-configuration-cache "${gradle_flags[@]}" -p "$consumer" -PmadcoreRepository="$repository" \
   -PupperRepository="$upper_repo" :app:verifyPublishedComposition \
   :app:assembleDebug "$test_task"
 python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"

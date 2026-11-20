@@ -43,6 +43,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         self.window = window
         DispatchQueue.global(qos: .userInitiated).async {
             do {
+                guard let expectedVersion = Bundle.main.object(
+                    forInfoDictionaryKey: "MadCoreExpectedSdkVersion"
+                ) as? String, !expectedVersion.isEmpty,
+                MadCoreInfo.shared.version == expectedVersion else {
+                    print("MADCORE_HOST_VERSION_MISMATCH")
+                    fflush(stdout)
+                    throw CheckFailure.failed
+                }
+                print("MADCORE_HOST_VERSION_MATCH")
+                fflush(stdout)
                 try runHostChecks()
                 print("MADCORE_EXTERNAL_IOS_HOST_PASS")
                 fflush(stdout)

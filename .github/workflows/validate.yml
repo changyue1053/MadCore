@@ -33,6 +33,7 @@ jobs:
       - run: python3 tools/test_harmony_composition.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
+      - run: python3 -B tools/test_ios_host_expected_version.py && python3 -B -O tools/test_ios_host_expected_version.py
       - name: Test opt-in copied HTTP registry (host only)
         run: bash harmony/experimental/copied-http/test_host.sh
       - name: Test experimental async ownership contract (host only)
