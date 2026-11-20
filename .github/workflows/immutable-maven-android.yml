@@ -1,0 +1,57 @@
+name: Rehearse MadCore immutable Android staging (one Draft transition)
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths: ['.github/workflows/immutable-maven-android.yml']
+permissions:
+  contents: read
+concurrency:
+  group: madcore-immutable-android-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  android-immutable:
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.number == 1 &&
+      github.event.pull_request.draft &&
+      github.event.before == '57adc6232dbb43605f3f2ff43287fc15772f96fc' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify one exact, scoped Draft transition
+        id: scope
+        shell: bash
+        run: |
+          base=57adc6232dbb43605f3f2ff43287fc15772f96fc
+          if [[ "$(git show -s --format=%P HEAD)" != "$base" ]]; then
+            echo 'MADCORE_IMMUTABLE_ANDROID_STAGE=scope RESULT=skipped REASON=unexpected-parent'
+            exit 0
+          fi
+          expected=$(printf '%s\n' .github/workflows/immutable-maven-android.yml .github/workflows/phase3-ios-abi-full.yml tools/rehearse_immutable_android_ci.sh tools/run_ios_full_abi_comparison.sh)
+          if [[ "$(git diff --no-renames --name-status "$base" HEAD | awk -F '\t' '$1 == "A" {print $2; next} { print "UNEXPECTED" }')" != "$expected" ]]; then
+            echo 'MADCORE_IMMUTABLE_ANDROID_STAGE=scope RESULT=failed REASON=unexpected-paths'
+            exit 1
+          fi
+          if [[ "$(git show -s --format=%P "$base")" != 66a4789c14c1e9dfd5d3c7118ca90effc8c4e8b7 ]]; then
+            echo 'MADCORE_IMMUTABLE_ANDROID_STAGE=scope RESULT=failed REASON=archive-ancestry'
+            exit 1
+          fi
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
+          echo 'MADCORE_IMMUTABLE_ANDROID_STAGE=scope RESULT=passed'
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        if: steps.scope.outputs.eligible == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Cold local staging, isolated upper AARs and compile-only app
+        if: steps.scope.outputs.eligible == 'true'
+        shell: bash
+        run: bash tools/rehearse_immutable_android_ci.sh
