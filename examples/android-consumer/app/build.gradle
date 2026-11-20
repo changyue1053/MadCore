@@ -32,8 +32,45 @@ android {
 }
 kotlin { jvmToolchain(21) }
 dependencies {
-    implementation files('libs/alpha-release.aar', 'libs/beta-release.aar')
-    implementation 'com.mad.core:madcore:0.1.0-SNAPSHOT'
+    implementation 'example.madcore.upper:alpha:0.1.0'
+    implementation 'example.madcore.upper:beta:0.1.0'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'junit:junit:4.13.2'
+}
+
+// Fail if this independent app stops testing the transitive Maven route, or if
+// Gradle resolves Core through a JVM artifact instead of its Android AARs.
+tasks.register('verifyPublishedComposition') {
+    doLast {
+        // KGP may add its default stdlib itself; this is not an app declaration.
+        def coordinates = configurations.implementation.dependencies.findAll {
+            !(it.group == 'org.jetbrains.kotlin' && it.name == 'kotlin-stdlib')
+        }.collect {
+            "${it.group}:${it.name}:${it.version}".toString()
+        }.sort()
+        if (coordinates != ['example.madcore.upper:alpha:0.1.0', 'example.madcore.upper:beta:0.1.0']) {
+            throw new GradleException("Expected only the two upper Maven dependencies, found $coordinates")
+        }
+
+        def expectedCore = [
+            'core-config', 'core-extension', 'core-json', 'core-lifecycle',
+            'core-logging', 'core-net', 'core-storage', 'core-time', 'madcore'
+        ].collect { "${it}-android".toString() }.sort()
+        ['debugCompileClasspath', 'debugRuntimeClasspath',
+         'releaseCompileClasspath', 'releaseRuntimeClasspath'].each { configName ->
+            def artifacts = configurations.getByName(configName).resolvedConfiguration.resolvedArtifacts
+            def core = artifacts.findAll { it.moduleVersion.id.group == 'com.mad.core' }
+            def upper = artifacts.findAll { it.moduleVersion.id.group == 'example.madcore.upper' }
+            def coreNames = core.collect { it.moduleVersion.id.name }
+            if (coreNames.sort() != expectedCore ||
+                !core.every { it.extension == 'aar' && it.moduleVersion.id.version == '0.1.0-SNAPSHOT' }) {
+                throw new GradleException("$configName must contain one Android AAR per production Core module: $core")
+            }
+            if (upper.collect { it.moduleVersion.id.name }.sort() != ['alpha', 'beta'] ||
+                !upper.every { it.extension == 'aar' && it.moduleVersion.id.version == '0.1.0' }) {
+                throw new GradleException("$configName must contain the two published upper AARs: $upper")
+            }
+            println("$configName: one Android Core version through two published upper AARs")
+        }
+    }
 }

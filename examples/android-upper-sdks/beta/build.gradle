@@ -2,6 +2,7 @@ plugins { id 'com.android.library'; id 'org.jetbrains.kotlin.android' }
 android {
     namespace 'example.upper.beta'
     compileSdk 36
+    publishing { singleVariant('release') }
     defaultConfig { minSdk 24 }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
@@ -10,3 +11,10 @@ android {
 }
 kotlin { jvmToolchain(21) }
 dependencies { api 'com.mad.core:madcore:0.1.0-SNAPSHOT' }
+
+afterEvaluate {
+    def releaseComponent = components.getByName('release')
+    publishing.publications.named('release', MavenPublication) {
+        from releaseComponent
+    }
+}

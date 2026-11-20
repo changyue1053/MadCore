@@ -2,3 +2,23 @@ plugins {
     id 'com.android.library' version '8.13.2' apply false
     id 'org.jetbrains.kotlin.android' version '2.2.21' apply false
 }
+
+// Local test fixtures only. Publish the Android component, not a bare artifact,
+// so both Gradle module metadata and Maven POM describe the API dependencies.
+subprojects {
+    group = 'example.madcore.upper'
+    version = '0.1.0'
+    apply plugin: 'maven-publish'
+
+    publishing {
+        publications {
+            release(MavenPublication)
+        }
+        repositories {
+            maven {
+                name = 'upperStaging'
+                url = uri(providers.gradleProperty('upperRepository').get())
+            }
+        }
+    }
+}

@@ -1,69 +1,40 @@
 # Independent Android artifact consumer
 
-This separate Gradle build consumes staged Core Maven publications plus two physical
-upper-SDK AARs, not SDK source project dependencies. Its seven instrumentation tests
-cover configuration/HTTP policy and untrusted TLS rejection, storage/persistence and
-namespaces/error redaction, lifecycle, and two upper AARs sharing one Core instance.
+This standalone app declares only `example.madcore.upper:alpha:0.1.0` and
+`example.madcore.upper:beta:0.1.0`. These are local, development-only Android
+release Maven publications, not external package coordinates. Each upper SDK
+declares Core as a transitive API dependency. The app has no raw AAR or direct
+Core dependency. Its seven API30 instrumentation cases cover the upper libraries'
+shared store identity and mutation, HTTP policy and untrusted TLS rejection,
+storage and lifecycle.
 
-## Reproduce the existing CI lane
+## Reproduce the API30 gate
 
 Use a Linux x86_64 host with accessible KVM, JDK 21, Android SDK 36, and an available
 API 30 standard AOSP x86_64 image whose applicable license is already accepted.
 Use the repository's Gradle 9.4.1 wrapper; Python 3, OpenSSL and curl must be available.
 This procedure does not accept licenses or change KVM/system permissions.
 
-Run the following in **Bash from the MadCore repository root**, not this example directory.
-The standalone app requires both `app/libs/alpha-release.aar` and
-`app/libs/beta-release.aar`; simply running its instrumentation task before preparing
-those artifacts and the Maven repository is insufficient.
+From the MadCore repository root:
 
 ```bash
-(
-set -euo pipefail
-test -r /dev/kvm && test -w /dev/kvm
-root="$PWD"
-repository="$root/build/staging-repository/android"
-
 ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
-python3 tools/check_publication_graph.py "$repository"
-
-work=$(mktemp -d)
-echo "Consumer artifacts, fixture log and test results: $work"
-consumer="$work/consumer"
-upper="$work/upper"
-mkdir -p "$consumer" "$upper"
-cp -R examples/android-consumer/. "$consumer/"
-cp -R examples/android-upper-sdks/. "$upper/"
-
-./gradlew --no-daemon -p "$upper" -PmadcoreRepository="$repository" assembleRelease
-mkdir -p "$consumer/app/libs"
-cp "$upper/alpha/build/outputs/aar/alpha-release.aar" "$consumer/app/libs/"
-cp "$upper/beta/build/outputs/aar/beta-release.aar" "$consumer/app/libs/"
-python3 tools/check_upper_aars.py "$consumer/app/libs"
-# The app must consume the copied AARs, not upper-SDK source projects.
-rm -rf -- "$upper"
-
-python3 tools/http_fixture.py --tls > "$work/http-fixture.log" 2>&1 &
-fixture=$!
-cleanup_fixture() {
-  kill "$fixture" 2>/dev/null || true
-  wait "$fixture" 2>/dev/null || true
-}
-trap cleanup_fixture EXIT
-curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok
-curl --fail http://127.0.0.1:18082/tls-ready
-
-./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$repository" :app:assembleDebug :app:pixel2api30DebugAndroidTest
-python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"
-)
+python3 tools/check_publication_graph.py build/staging-repository/android
+bash tools/test_android_maven_consumer.sh "$PWD/build/staging-repository/android"
 ```
 
-The temporary directory is retained for diagnostics; the trap stops only this command's
-fixture process. Ensure host ports 18082 and 18443 are free before starting.
+The script publishes the two upper release components into a separate temporary
+Maven repository, requires their POMs and Gradle module metadata, and checks the
+published AARs against their thin release build outputs. It removes temporary upper
+sources and loose AARs before the independently copied app is built. The Gradle gate
+checks Debug and Release compile/runtime classpaths for one Android Core artifact
+per production module at one version, with no JVM fallback.
+
+The temporary directory is retained for diagnostics; the script stops only its own
+fixture. Ensure host ports 18082 and 18443 are free before starting.
 The fixture binds loopback only: HTTP on 18082 and a self-signed TLS endpoint on 18443.
-The emulator reaches them via `10.0.2.2`. **Keep `--tls`**: the TLS rejection test
-also checks that the fixture received a connection attempt and no accepted HTTP request;
-a missing TLS server is not equivalent evidence. No trust bypass is used.
+The emulator reaches them via `10.0.2.2`. The TLS check requires a connection
+attempt to the real fixture with no accepted HTTP request, not merely a missing server.
 
 Only the debug manifest permits fixture cleartext; production SDK defaults and the
 release manifest forbid it. Standard AOSP is intentional: its repository metadata

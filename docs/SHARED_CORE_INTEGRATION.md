@@ -23,13 +23,14 @@ layout needs a separate export/link strategy and test; do not infer it from this
 probe. Current artifacts are same-toolchain evaluation builds, not Swift ABI
 stability or cross-version compatibility promises.
 
-Android additionally builds Alpha/Beta in an outside-checkout library project,
-then copies their AARs to the independent app and deletes the upper SDK build
-project. The host explicitly resolves Core from staged Maven; local AAR files do
-not carry transitive dependency metadata. The emulator test passes a StringStore
-between the AARs and checks instance/type identity. Archive guards reject embedded
-Core classes/native libraries. This raw-AAR runtime route is not published upper-AAR metadata validation; the
-separate Maven metadata/compile check below covers that narrower packaging gap.
+The [Android API30 gate](../examples/android-consumer/README.md) publishes
+two thin Android release components to local Maven, then removes their sources
+and loose AARs. The host declares only Alpha and Beta, resolves transitively
+against the staged Core Maven artifacts, and gates all four Debug/Release
+compile/runtime classpaths and the seven real emulator cases. Exact-commit CI
+determines whether this gate has passed. Historical API30 runs through
+`da04570a684281a7afa1ca5e7359a337cc5e4389` used raw upper AARs and a direct Core
+declaration, so they do not establish Maven-only runtime coverage.
 
 ## Android upper Maven publications: bounded local evidence
 
@@ -61,7 +62,7 @@ Verified:
   call constructing `SharedPreferencesStringStore` compiles in Debug and Release,
   exercising an Android-only adapter rather than accepting a JVM substitute.
 
-This validates local publication metadata, dependency resolution and compilation,
+This isolated run validates local publication metadata, dependency resolution and compilation,
 **not execution through this Maven packaging route**. The earlier API30
 identity/mutation runtime test uses raw upper AARs and explicit Core; it must not
 be relabeled as this test. No API24/API36, physical-device, remote repository,

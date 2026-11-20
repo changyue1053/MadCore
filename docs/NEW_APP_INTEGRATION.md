@@ -32,9 +32,9 @@ Private test HAPs are not release assets.
   `build/staging-repository/android`. A lone umbrella AAR is not the full Maven
   dependency closure. Do not combine different targets' staging directories.
   The [independent Android example](../examples/android-consumer/README.md)
-  includes both upper AARs and the HTTP/TLS fixture for its existing runtime lane.
-  Separate upper-Maven metadata/compile evidence and its no-runtime limit are
-  recorded in [shared-Core integration](SHARED_CORE_INTEGRATION.md).
+  gates two Maven-published upper SDKs, transitive Core selection, and the HTTP/TLS
+  fixture on API30. See [shared-Core integration](SHARED_CORE_INTEGRATION.md) for
+  the distinction between this gate and historical raw-AAR runtime evidence.
 
 - iOS: `bash tools/build_ios_xcframework.sh` produces the evaluated device and
   arm64 Simulator MadCore XCFramework slices. Integrate the built framework and
