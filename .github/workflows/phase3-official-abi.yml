@@ -1,0 +1,47 @@
+name: Compare MadCore compiled ABI (one Draft transition)
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths: ['.github/workflows/phase3-official-abi.yml']
+permissions:
+  contents: read
+jobs:
+  abi:
+    name: ABI (${{ matrix.lane }})
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.draft &&
+      github.event.pull_request.number == 1 &&
+      github.event.before == 'f8b864718a35d95a1e87331d216b995c3ac0c55d' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: jvm
+            runner: ubuntu-latest
+          - lane: android
+            runner: ubuntu-latest
+          - lane: ios
+            runner: macos-15
+            developer_dir: /Applications/Xcode_26.0.1.app/Contents/Developer
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compare isolated compiler dumps
+        shell: bash
+        env:
+          DEVELOPER_DIR: ${{ matrix.developer_dir }}
+          ABI_LANE: ${{ matrix.lane }}
+        run: bash tools/run_official_abi_comparison.sh "$ABI_LANE"
