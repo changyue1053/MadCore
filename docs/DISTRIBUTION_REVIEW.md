@@ -43,3 +43,67 @@ the first 100 matches and total count; the full temporary report is not publishe
 as a release artifact. This does not accept any new terms. Keyword matching can
 miss terms or include unrelated package licenses and proves no permission. Exact
 relevant version-specific texts must still be reviewed before distribution.
+
+### JVM and Android Maven evidence (local, optional)
+
+Start from a newly staged repository for one target; do not combine target
+directories. After the existing publication graph and independent consumer
+checks, generate the review evidence locally:
+
+```sh
+mkdir -p build/validation
+python3 tools/inventory_maven_release_evidence.py --target android build/staging-repository/android \
+  > build/validation/android-maven-evidence.json
+python3 tools/inventory_maven_release_evidence.py --target jvm build/staging-repository/jvm \
+  > build/validation/jvm-maven-evidence.json
+```
+
+Retain the checkout commit and build invocation with each successful report;
+an empty output after command failure is not evidence. The report separates:
+
+- **Declared Maven evidence:** checked variant closures, POM SHA-256
+  fingerprints and explicitly declared external Maven coordinates. Gradle module
+  metadata files are hashed, not interpreted as a complete dependency graph or
+  resolved classpath.
+- **Observed packages:** exact JAR/AAR checksums, file sizes and classifiers,
+  visible class namespace counts, listed embedded binary/archive member names,
+  and one level of JARs inside AARs. This is an archive observation, not source
+  or licensing attribution for bytecode, including relocated or embedded code.
+- **Notice candidates:** filenames and hashes of apparent LICENSE, NOTICE and
+  similar entries, without copying their contents. Names alone cannot prove
+  terms apply; absence is not evidence a notice is unnecessary.
+
+This does not resolve external artifacts, prove that all expected binaries
+were built or that a publication is fully compatible/compliant, or cover iOS
+KLIB/XCFrameworks and Harmony HARs. It does not change a license or publish an
+artifact. Run the same evidence tooling against the final versioned artifact
+set after its publication metadata and module manifest are aligned, and resolve
+all open license decisions separately.
+
+### iOS packaged evidence and private runner checks
+
+Use the already built XCFramework from the exact source revision and Kotlin
+version. This reads both device and simulator static archives and hashes
+packaged files. It does not compile, sign or run an app.
+
+```sh
+umask 077
+python3 tools/capture_ios_distribution_evidence.py \
+  --xcframework madcore/build/XCFrameworks/release/MadCore.xcframework \
+  --source-revision "$(git rev-parse HEAD)" --kotlin-version 2.2.21 \
+  > build/validation/ios-packaged-evidence.json
+```
+
+Create the private destination directory before running this. If available,
+add the exact cached supplier archive from the build and a matching independent
+host executable and link map. A linker map only identifies loaded objects in
+that particular host; it cannot account for unused material shipped in the
+XCFramework. The supplier archive is broader than the packaged SDK and does
+not prove which components were incorporated.
+
+Regular validation uses its existing staged Maven outputs and XCFramework and
+writes private ephemeral JSON in the runner temporary directory. CI prints
+aggregate counts only and does not upload reports or binaries. To conduct an
+attribution or NOTICE review, reproduce the capture on a controlled executor
+where the matching files can be retained and inspected privately. Counts alone
+are not the eventual release manifest or a permission decision.

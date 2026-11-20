@@ -22,6 +22,10 @@ jobs:
       - run: python3 tools/test_tls_fixture.py
       - run: python3 tools/test_jvm_classpath.py
       - run: python3 tools/test_publication_graph.py
+      - name: Test prerelease evidence capture helpers on synthetic inputs
+        run: |
+          python3 tools/test_maven_release_evidence.py
+          python3 tools/test_ios_distribution_evidence.py
       - run: python3 tools/test_harmony_binary_inventory.py
       - run: python3 tools/test_upper_aars.py
       - run: python3 tools/test_android_maven_consumer_modes.py
@@ -46,6 +50,9 @@ jobs:
           node --experimental-transform-types tools/test_copied_http_driver.mjs
       - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
       - run: python3 tools/check_publication_graph.py build/staging-repository/jvm
+      - name: Record jvm staged distribution evidence (runner local)
+        timeout-minutes: 2
+        run: python3 tools/record_distribution_evidence_ci.py jvm build/staging-repository/jvm
       - name: Consume only published artifacts from outside the checkout
         shell: bash
         run: |
@@ -70,6 +77,9 @@ jobs:
           java-version: '21'
       - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
       - run: python3 tools/check_publication_graph.py build/staging-repository/android
+      - name: Record android staged distribution evidence (runner local)
+        timeout-minutes: 2
+        run: python3 tools/record_distribution_evidence_ci.py android build/staging-repository/android
       - name: Verify release AARs exist
         run: |
           for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
@@ -118,6 +128,9 @@ jobs:
           consumer=$(mktemp -d)
           cp examples/ios-consumer/Consumer.swift "$consumer/Consumer.swift"
           xcrun --sdk iphonesimulator swiftc -typecheck -target arm64-apple-ios15.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" -F "$xc/ios-arm64-simulator" "$consumer/Consumer.swift"
+      - name: Record iOS XCFramework distribution evidence (runner local)
+        timeout-minutes: 2
+        run: python3 tools/record_distribution_evidence_ci.py ios madcore/build/XCFrameworks/release/MadCore.xcframework
       - name: Link native behavior tests before simulator startup
         run: ./gradlew --no-daemon -Pmadcore.target=ios :core-net:linkDebugTestIosSimulatorArm64 :core-storage:linkDebugTestIosSimulatorArm64 :core-lifecycle:linkDebugTestIosSimulatorArm64
       - name: Build two published Kotlin upper libraries and one iOS umbrella
