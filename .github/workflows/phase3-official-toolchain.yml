@@ -1,0 +1,262 @@
+name: Compare MadCore official toolchain (draft only)
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths:
+      - '.github/workflows/phase3-official-toolchain.yml'
+      - '.github/phase3/apply-official-toolchain.py'
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: madcore-phase3-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  jvm:
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.draft &&
+      github.event.pull_request.number == 1 &&
+      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Apply exact-base toolchain overlay (runner only)
+        shell: bash
+        run: |
+          base=2955ff64f0535407be3216d8c6b0365132e80429
+          test "$(git rev-parse HEAD^)" = "$base"
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          python3 .github/phase3/apply-official-toolchain.py
+          export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
+          export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
+          printf '%s\n' "GRADLE_USER_HOME=$GRADLE_USER_HOME" "KONAN_DATA_DIR=$KONAN_DATA_DIR" >> "$GITHUB_ENV"
+          git diff --check
+          git rev-parse HEAD
+          java -version
+          ./gradlew --no-daemon --version
+      - run: python3 tools/check_source_boundary.py
+      - run: python3 tools/test_http_fixture.py
+      - run: python3 tools/test_tls_fixture.py
+      - run: python3 tools/test_jvm_classpath.py
+      - run: python3 tools/test_publication_graph.py
+      - run: ./gradlew --no-daemon -Pmadcore.target=jvm jvmTest publishAllPublicationsToStagingRepository
+      - run: python3 tools/check_publication_graph.py build/staging-repository/jvm
+      - name: Consume only published artifacts from outside the checkout
+        shell: bash
+        run: |
+          consumer=$(mktemp -d)
+          cp -R examples/jvm-consumer/. "$consumer/"
+          ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository/jvm" run writeRuntimeClasspath
+          python3 tools/check_jvm_classpath.py "$consumer/runtime-classpath.json"
+  android:
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.draft &&
+      github.event.pull_request.number == 1 &&
+      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 37
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Apply exact-base toolchain overlay (runner only)
+        shell: bash
+        run: |
+          base=2955ff64f0535407be3216d8c6b0365132e80429
+          test "$(git rev-parse HEAD^)" = "$base"
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          python3 .github/phase3/apply-official-toolchain.py
+          export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
+          export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
+          printf '%s\n' "GRADLE_USER_HOME=$GRADLE_USER_HOME" "KONAN_DATA_DIR=$KONAN_DATA_DIR" >> "$GITHUB_ENV"
+          git diff --check
+          git rev-parse HEAD
+          java -version
+          ./gradlew --no-daemon --version
+      - run: ./gradlew --no-daemon -Pmadcore.target=android assembleRelease publishAllPublicationsToStagingRepository
+      - run: python3 tools/check_publication_graph.py build/staging-repository/android
+      - name: Verify release AARs exist
+        run: |
+          for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
+            test -s "$module/build/outputs/aar/$module-release.aar"
+          done
+      - name: Test an independent Maven Android app on a managed emulator
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          test -e /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          bash tools/test_android_maven_consumer.sh "$GITHUB_WORKSPACE/build/staging-repository/android"
+  ios:
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.draft &&
+      github.event.pull_request.number == 1 &&
+      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: macos-15
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      PHASE3_IOS_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-0
+      PHASE3_IOS_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-16
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify selected Xcode and simulator inventory
+        shell: bash
+        run: |
+          test "$(uname -m)" = arm64
+          test -d "$DEVELOPER_DIR"
+          version=$(xcodebuild -version)
+          printf '%s\n' "$version"
+          grep -Fxq 'Xcode 26.0.1' <<< "$version"
+          grep -Fxq 'Build version 17A400' <<< "$version"
+          xcrun --sdk iphonesimulator --show-sdk-version
+          xcrun --sdk iphonesimulator --show-sdk-build-version
+          xcrun simctl list runtimes -j | python3 -c '
+          import json, sys
+          target = sys.argv[1]
+          matches = [r for r in json.load(sys.stdin)["runtimes"]
+                     if r.get("identifier") == target and r.get("isAvailable") is True]
+          if len(matches) != 1:
+              sys.exit(f"Required simulator runtime unavailable: {target}")
+          runtime = matches[0]
+          version, build = runtime["version"], runtime["buildversion"]
+          print(f"Simulator runtime: {target}; version={version}; build={build}")
+          ' "$PHASE3_IOS_RUNTIME"
+      - name: Apply exact-base toolchain overlay (runner only)
+        shell: bash
+        run: |
+          base=2955ff64f0535407be3216d8c6b0365132e80429
+          test "$(git rev-parse HEAD^)" = "$base"
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          python3 .github/phase3/apply-official-toolchain.py
+          export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
+          export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
+          printf '%s\n' "GRADLE_USER_HOME=$GRADLE_USER_HOME" "KONAN_DATA_DIR=$KONAN_DATA_DIR" >> "$GITHUB_ENV"
+          git diff --check
+          git rev-parse HEAD
+          java -version
+          ./gradlew --no-daemon --version
+      - run: bash tools/build_ios_xcframework.sh
+      - name: Inspect both iOS Swift export slices
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          xc=madcore/build/XCFrameworks/release/MadCore.xcframework
+          for spec in ios-arm64:iphoneos:arm64-apple-ios15.0 \
+                      ios-arm64-simulator:iphonesimulator:arm64-apple-ios15.0-simulator; do
+            IFS=: read -r slice sdk target <<< "$spec"
+            header="$xc/$slice/MadCore.framework/Headers/MadCore.h"
+            test -s "$header"
+            shasum -a 256 "$header"
+            xcrun --sdk "$sdk" swiftc -typecheck -target "$target" \
+              -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" -F "$xc/$slice" \
+              examples/ios-consumer/Consumer.swift
+          done
+          sdk=$(xcrun --sdk iphoneos --show-sdk-path)
+          device=$(mktemp -d)
+          framework="$xc/ios-arm64"
+          xcrun --sdk iphoneos swiftc -target arm64-apple-ios15.0 -sdk "$sdk" \
+            -F "$framework" -framework MadCore examples/ios-consumer/Consumer.swift -o "$device/madcore-consumer"
+          xcrun vtool -show-build "$device/madcore-consumer"
+      - name: Link native behavior tests before simulator startup
+        run: ./gradlew --no-daemon -Pmadcore.target=ios :core-net:linkDebugTestIosSimulatorArm64 :core-storage:linkDebugTestIosSimulatorArm64 :core-lifecycle:linkDebugTestIosSimulatorArm64
+      - name: Build two published Kotlin upper libraries and one iOS umbrella
+        id: kotlin_umbrella_build
+        shell: bash
+        run: |
+          ./gradlew --no-daemon -Pmadcore.target=ios :core-storage:publishAllPublicationsToStagingRepository
+          bash tools/test_ios_kotlin_composition.sh build "$GITHUB_WORKSPACE/build/staging-repository/ios" "$RUNNER_TEMP/kotlin-composition"
+      - name: Start TLS fixture before simulator boot
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          python3 tools/http_fixture.py --tls > "$RUNNER_TEMP/http-fixture.log" 2>&1 &
+          fixture=$!
+          echo "MADCORE_FIXTURE_PID=$fixture" >> "$GITHUB_ENV"
+          if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok; then
+            if kill -0 "$fixture" 2>/dev/null; then echo 'Fixture process alive but not ready'; else echo 'Fixture process exited before readiness'; fi
+            tail -n 80 "$RUNNER_TEMP/http-fixture.log"
+            exit 1
+          fi
+      - name: Boot iOS simulator (separate bounded infrastructure stage)
+        id: ios_boot
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl create "MadCore Phase 3 iPhone 16" "$PHASE3_IOS_DEVICE_TYPE" "$PHASE3_IOS_RUNTIME")
+          echo "MADCORE_IOS_SIMULATOR_UDID=$MADCORE_IOS_SIMULATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID"
+          xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
+          xcodebuild -version
+          xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          udid = sys.argv[1]
+          matches = [(runtime, device) for runtime, devices in json.load(sys.stdin)["devices"].items()
+                     for device in devices if device.get("udid") == udid]
+          if len(matches) != 1 or matches[0][1].get("state") != "Booted":
+              sys.exit("Expected exactly one booted simulator matching the chosen UDID")
+          runtime, device = matches[0]
+          if runtime != sys.argv[2] or device.get("deviceTypeIdentifier") != sys.argv[3]:
+              sys.exit("Booted simulator does not match the selected runtime and device type")
+          model = device["deviceTypeIdentifier"]
+          print(f"MadCore iOS simulator: runtime={runtime}; model={model}; udid={udid}")
+          ' "$MADCORE_IOS_SIMULATOR_UDID" "$PHASE3_IOS_RUNTIME" "$PHASE3_IOS_DEVICE_TYPE"
+      - name: Run native and independent iOS host behavior tests
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          kill -0 "$MADCORE_FIXTURE_PID"
+          curl --fail http://127.0.0.1:18082/tls-ready
+          ./gradlew --no-daemon -Pmadcore.target=ios :core-net:iosSimulatorArm64Test --device "$MADCORE_IOS_SIMULATOR_UDID" :core-storage:iosSimulatorArm64Test --device "$MADCORE_IOS_SIMULATOR_UDID" :core-lifecycle:iosSimulatorArm64Test --device "$MADCORE_IOS_SIMULATOR_UDID"
+          python3 tools/check_ios_http_results.py
+          python3 tools/check_ios_storage_results.py
+          python3 tools/check_ios_lifecycle_results.py
+          bash tools/test_ios_host.sh
+      - name: Run independent Kotlin umbrella host
+        if: ${{ !cancelled() && steps.kotlin_umbrella_build.outcome == 'success' && steps.ios_boot.outcome == 'success' }}
+        timeout-minutes: 4
+        run: bash tools/test_ios_kotlin_composition.sh run "$RUNNER_TEMP/kotlin-composition"
+      - name: Stop private fixture and discard the disposable simulator
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${MADCORE_FIXTURE_PID:-}" ]; then kill "$MADCORE_FIXTURE_PID" 2>/dev/null || true; fi
+          if [ -n "${MADCORE_IOS_SIMULATOR_UDID:-}" ]; then
+            xcrun simctl shutdown "$MADCORE_IOS_SIMULATOR_UDID" || true
+            xcrun simctl delete "$MADCORE_IOS_SIMULATOR_UDID"
+          fi
