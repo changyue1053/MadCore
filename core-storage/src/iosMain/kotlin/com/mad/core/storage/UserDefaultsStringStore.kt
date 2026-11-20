@@ -10,7 +10,7 @@ import platform.Foundation.NSUserDefaults
  * No synchronize() call: Apple documents it as unnecessary. Objective-C NSExceptions are not caught.
  */
 class UserDefaultsStringStore(private val defaults: NSUserDefaults) : StringStore {
-    @Throws(StorageException::class)
+    // Inherit StringStore's @Throws filter for the Objective-C/Swift bridge.
     override fun get(key: String): String? {
         checkStorageKey(key)
         val value = defaults.objectForKey(key) ?: return null
@@ -19,14 +19,12 @@ class UserDefaultsStringStore(private val defaults: NSUserDefaults) : StringStor
         return value
     }
 
-    @Throws(StorageException::class)
     override fun put(key: String, value: String) {
         checkStorageKey(key)
         checkStorageValue(value)
         defaults.setObject(value, forKey = key)
     }
 
-    @Throws(StorageException::class)
     override fun remove(key: String) {
         checkStorageKey(key)
         defaults.removeObjectForKey(key)

@@ -16,6 +16,19 @@ func check(_ condition: Bool) throws {
     if !condition { throw CheckFailure.failed }
 }
 
+private func checkInvalidStorageKey(_ operation: () throws -> Void) throws {
+    do {
+        try operation()
+    } catch {
+        // Assert the bridged Kotlin type and failure, not a localized message.
+        let nsError = error as NSError
+        guard let storageError = nsError.userInfo["KotlinException"] as? StorageException,
+              storageError.failure.name == "InvalidKey" else { throw error }
+        return
+    }
+    throw CheckFailure.failed
+}
+
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
@@ -83,6 +96,14 @@ private func runHostChecks() throws {
         try check(try reopened.get(key: "theme") == "dark")
         try store.remove(key: "theme")
         try check(try reopened.get(key: "theme") == nil)
+
+        let protocolStore: StringStore = store
+        try checkInvalidStorageKey { _ = try store.get(key: "") }
+        try checkInvalidStorageKey { try store.put(key: "", value: "test") }
+        try checkInvalidStorageKey { try store.remove(key: "") }
+        try checkInvalidStorageKey { _ = try protocolStore.get(key: "") }
+        try checkInvalidStorageKey { try protocolStore.put(key: "", value: "test") }
+        try checkInvalidStorageKey { try protocolStore.remove(key: "") }
 
         print("MADCORE_HOST_STAGE_HTTP")
         fflush(stdout)

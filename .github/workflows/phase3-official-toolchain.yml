@@ -20,7 +20,7 @@ jobs:
       github.repository == 'changyue1053/MadCore' &&
       github.event.pull_request.draft &&
       github.event.pull_request.number == 1 &&
-      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.before == '2dac0f939feeec4b89ea4ad456381b95c1971a32' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.head_ref == 'work/core-validation-testkit'
     runs-on: ubuntu-latest
@@ -38,9 +38,9 @@ jobs:
       - name: Apply exact-base toolchain overlay (runner only)
         shell: bash
         run: |
-          base=2955ff64f0535407be3216d8c6b0365132e80429
+          base=2dac0f939feeec4b89ea4ad456381b95c1971a32
           test "$(git rev-parse HEAD^)" = "$base"
-          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/workflows/phase3-official-toolchain.yml\ncore-storage/src/iosMain/kotlin/com/mad/core/storage/UserDefaultsStringStore.kt\nexamples/ios-host/App.swift'
           python3 .github/phase3/apply-official-toolchain.py
           export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
           export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
@@ -68,7 +68,7 @@ jobs:
       github.repository == 'changyue1053/MadCore' &&
       github.event.pull_request.draft &&
       github.event.pull_request.number == 1 &&
-      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.before == '2dac0f939feeec4b89ea4ad456381b95c1971a32' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.head_ref == 'work/core-validation-testkit'
     runs-on: ubuntu-latest
@@ -86,9 +86,9 @@ jobs:
       - name: Apply exact-base toolchain overlay (runner only)
         shell: bash
         run: |
-          base=2955ff64f0535407be3216d8c6b0365132e80429
+          base=2dac0f939feeec4b89ea4ad456381b95c1971a32
           test "$(git rev-parse HEAD^)" = "$base"
-          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/workflows/phase3-official-toolchain.yml\ncore-storage/src/iosMain/kotlin/com/mad/core/storage/UserDefaultsStringStore.kt\nexamples/ios-host/App.swift'
           python3 .github/phase3/apply-official-toolchain.py
           export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
           export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
@@ -116,7 +116,7 @@ jobs:
       github.repository == 'changyue1053/MadCore' &&
       github.event.pull_request.draft &&
       github.event.pull_request.number == 1 &&
-      github.event.before == '2955ff64f0535407be3216d8c6b0365132e80429' &&
+      github.event.before == '2dac0f939feeec4b89ea4ad456381b95c1971a32' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.head_ref == 'work/core-validation-testkit'
     runs-on: macos-15
@@ -160,9 +160,9 @@ jobs:
       - name: Apply exact-base toolchain overlay (runner only)
         shell: bash
         run: |
-          base=2955ff64f0535407be3216d8c6b0365132e80429
+          base=2dac0f939feeec4b89ea4ad456381b95c1971a32
           test "$(git rev-parse HEAD^)" = "$base"
-          test "$(git diff --name-only "$base" HEAD)" = $'.github/phase3/apply-official-toolchain.py\n.github/workflows/phase3-official-toolchain.yml'
+          test "$(git diff --name-only "$base" HEAD)" = $'.github/workflows/phase3-official-toolchain.yml\ncore-storage/src/iosMain/kotlin/com/mad/core/storage/UserDefaultsStringStore.kt\nexamples/ios-host/App.swift'
           python3 .github/phase3/apply-official-toolchain.py
           export GRADLE_USER_HOME="$RUNNER_TEMP/madcore-phase3-gradle"
           export KONAN_DATA_DIR="$RUNNER_TEMP/madcore-phase3-konan"
