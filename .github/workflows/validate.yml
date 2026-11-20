@@ -59,7 +59,7 @@ jobs:
         run: bash tools/test_jvm_abi_candidate.sh
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -86,6 +86,10 @@ jobs:
           test -e /dev/kvm
           sudo chmod a+rw /dev/kvm
           bash tools/test_android_maven_consumer.sh "$GITHUB_WORKSPACE/build/staging-repository/android"
+      - name: Verify the Android compiled ABI candidate (no adopted baseline)
+        timeout-minutes: 10
+        shell: bash
+        run: bash tools/test_abi_candidate.sh android
       - name: Probe the documented Android minimum on a separate API24 AVD
         # First acceptance only on the same-repository MadCore Draft branch.
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'work/core-validation-testkit'
@@ -94,7 +98,7 @@ jobs:
         run: bash tools/test_android_api24.sh "$GITHUB_WORKSPACE/build/staging-repository/android"
   ios:
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -175,6 +179,25 @@ jobs:
         shell: bash
         run: |
           if [ -n "${MADCORE_FIXTURE_PID:-}" ]; then kill "$MADCORE_FIXTURE_PID" 2>/dev/null || true; fi
+      - name: Inspect both iOS Swift export slices
+        timeout-minutes: 4
+        shell: bash
+        run: |
+          xc=madcore/build/XCFrameworks/release/MadCore.xcframework
+          for spec in ios-arm64:iphoneos:arm64-apple-ios15.0 \
+                      ios-arm64-simulator:iphonesimulator:arm64-apple-ios15.0-simulator; do
+            IFS=: read -r slice sdk target <<< "$spec"
+            header="$xc/$slice/MadCore.framework/Headers/MadCore.h"
+            test -s "$header"
+            shasum -a 256 "$header"
+            xcrun --sdk "$sdk" swiftc -typecheck -target "$target" \
+              -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" -F "$xc/$slice" \
+              examples/ios-consumer/Consumer.swift
+          done
+      - name: Verify the two actual iOS KLIB ABI targets (no adopted baseline)
+        timeout-minutes: 12
+        shell: bash
+        run: bash tools/test_abi_candidate.sh ios
   harmony-native-har:
     # Paused pending exact SDK/toolchain license applicability review for a reusable SDK.
     # Keep prior evidence; restore only after review. Skipped is not fresh Harmony validation.

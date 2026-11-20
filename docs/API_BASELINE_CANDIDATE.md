@@ -5,10 +5,10 @@ This is an opt-in, local experiment for the production Kotlin modules and
 surface, not a stability promise. If an unannotated public declaration should
 remain experimental, decide its policy explicitly before adopting a baseline;
 do not hide it with a broad name filter. The opt-in `core-testkit` and the
-paused Harmony/CPF build are outside this probe. The existing JVM CI lane
-runs a self-check with temporary, compiler-generated references after the
-artifact-only consumer. Android, iOS and Harmony CI do not run this probe.
-It has no approved reference or release effect.
+paused Harmony/CPF build are outside this probe. The existing official CI
+lanes run self-checks with temporary compiler-generated references after
+their independent consumer tests. The Android probe does not depend on the
+separate API24 environment. No approved reference or release effect.
 
 The JVM self-check can also be run on a committed scratch revision with
 `bash tools/test_jvm_abi_candidate.sh`. It archives HEAD into a disposable
@@ -24,55 +24,109 @@ JVM requires Gradle/JDK21, Android also its already-provisioned SDK and existing
 AGP, iOS a compatible Mac/Xcode with both arm64 Kotlin/Native targets. Do not
 install or accept a new SDK/toolchain solely to run this candidate without approval.
 
-Run one lane at a time (repeat with `android` and `ios` where supported):
+Run **Android and iOS separately**, in a fresh disposable copy for each lane;
+don't overwrite or reuse the JVM candidate references. In an existing approved
+runner, use the exact reviewed checkout to create the scratch copy. On exiting
+the shell below, its builds, references and edits are removed. Do not enable
+this for Harmony. The existing Android App and Swift/simulator gates are
+independent from the candidate. To run the complete disposable probe
+including the negative control on an already qualified host, use
+`bash tools/test_abi_candidate.sh android` or
+`bash tools/test_abi_candidate.sh ios`. The individual commands below
+can also be used to inspect an unusual dump layout in scratch.
 
-```sh
-lane=jvm
-./gradlew --no-daemon -Pmadcore.target="$lane" -Pmadcore.abiProbe=true dumpLegacyAbi
-python3 tools/check_abi_candidate_inventory.py "$lane" actual
+```bash
+# Run from the reviewed checkout; choose android or ios before entering the shell.
+lane=android
+(
+  set -euo pipefail
+  case "$lane" in android|ios) ;; *) exit 2 ;; esac
+  repo=$(git rev-parse --show-toplevel)
+  revision=$(git -C "$repo" rev-parse HEAD)
+  scratch=$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/madcore-abi-$lane.XXXXXXXX")
+  trap 'rm -rf -- "$scratch"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  git -C "$repo" archive "$revision" | tar -xf - -C "$scratch"
+  cd "$scratch"
+  printf 'MadCore ABI candidate: %s, %s\n' "$revision" "$lane"
+  ./gradlew --version
+  test ! -e "api-baseline/$lane"
+  gradle=(./gradlew --no-daemon --console=plain "-Pmadcore.target=$lane" -Pmadcore.abiProbe=true)
+  "${gradle[@]}" dumpLegacyAbi
+  python3 tools/check_abi_candidate_inventory.py "$lane" actual
+  test ! -e "core-testkit/build/api-baseline/$lane"
+  "${gradle[@]}" updateLegacyAbi
+  python3 tools/check_abi_candidate_inventory.py "$lane" reference
+  "${gradle[@]}" checkLegacyAbi
+  # For the lane-specific drift or Swift checks below, run here before exiting.
+)
 ```
 
 KGP **2.2.21** uses `dumpLegacyAbi`, `updateLegacyAbi` and `checkLegacyAbi`,
 not the later task names. It uses JetBrains' version-matched `abi-tools` on its
 check-only classpath, not an extra Gradle plugin or consumer runtime dependency.
-Android records KGP's Android non-test class output (not a Maven/AAR inventory)
-and a separate JVM dump; do not conflate the two. iOS requires a KLIB dump with
-both `iosArm64` and `iosSimulatorArm64`; unsupported targets must fail, not infer
-declarations. Linux/JVM results cannot stand in for either native slice.
+Record the exact revision, toolchain, commands and individual outcomes. The
+temporary reference only proves this compiler can freshly dump and compare
+the same revision. It is not a baseline to commit or a compatibility promise.
+Both inventory checks are required: KGP 2.2.21 walks the actual output files
+and doesn't fail solely for an unmatched leftover reference.
 
-In that scratch checkout only, after a human reviews the fresh dump files, stage
-the candidate references, then run the comparison:
+- **Android:** Expect `android/<module>.api` and `jvm/<module>.api` per module.
+  KGP supplies non-test Android compilation class directories; this can include
+  both debug and release and is **not** the staged Maven AAR's public ABI.
+  Record any overlapping-variant issue explicitly rather than ignoring a
+  file, substituting the JVM view, or choosing one class arbitrarily. Keep the
+  published-artifact and App runtime gates unchanged. Record SDK/AGP and no
+  emulator is needed for this ABI probe.
+- **iOS:** Expect `<module>.api` (JVM) plus `<module>.klib.api` whose root
+  header lists exactly `iosArm64` and `iosSimulatorArm64`. The probe disables
+  unsupported-target inference; fail if either real target is missing. Run
+  only on the qualified macOS/Xcode toolchain and record those versions. JVM
+  signatures and iOS Swift/Objective-C headers are not substitutes for KLIBs.
 
-```sh
-./gradlew --no-daemon -Pmadcore.target="$lane" -Pmadcore.abiProbe=true updateLegacyAbi
-python3 tools/check_abi_candidate_inventory.py "$lane" reference
-./gradlew --no-daemon -Pmadcore.target="$lane" -Pmadcore.abiProbe=true checkLegacyAbi
-python3 tools/check_abi_candidate_inventory.py "$lane" actual
-```
-
-Actual dumps live at <module>/build/api-baseline/<lane>; reviewed references
-live at api-baseline/<lane>/<module>. The JVM, Android and iOS lane directories
-are intentionally separate. Run the host-only inventory tests with
-`python3 tools/test_abi_candidate_inventory.py`.
-
-Both inventory checks are required: KGP 2.2.21 compares files it actually
-generates and does not fail solely because a reference file has no output.
-The inventory check does not parse or compare API signatures; it guards against
-missing lane/module outputs, empty files, extra dumps and incomplete iOS targets.
-For a control, add a public top-level function to `core-config` only in the
-scratch checkout and require `:core-config:checkLegacyAbi` to report ABI drift.
-Remove that file, check again, and do not update the candidate to accept the
-control change. A compiled ABI diff is not proof of source-level compatibility,
-behavior, or the absence of experimental APIs.
+To verify lane-specific rejection, follow the [JVM negative control pattern](../tools/test_jvm_abi_candidate.sh)
+inside that scratch shell with a public function in
+`core-config/src/androidMain/kotlin/` on Android or
+`core-config/src/iosSimulatorArm64Main/kotlin/` on iOS. Create just that
+temporary file/directory if missing. After `:core-config:checkLegacyAbi` fails,
+require the ABI-drift marker and fresh symbol in the Android dump or KLIB dump,
+and its absence in the JVM dump. An unrelated compiler error is not a pass.
+Remove the source, rerun the same check and inventory successfully, and check
+that the symbol is gone. Don't update the candidate to accept the control.
+A simulator-target control does not prove iOS device behavior.
 
 ## Swift and Harmony are separate surfaces
 
 Kotlin/Native KLIB results do not describe the Swift-visible Objective-C facade.
-On the existing authorized macOS lane, additionally build the release
-XCFramework with `bash tools/build_ios_xcframework.sh`. Save and review each
-slice's `MadCore.framework/Headers/MadCore.h` separately, as raw text with its
-exact source and toolchain recorded. Compare later builds per slice using
-`diff -u` and keep the existing external Swift typecheck. Do not strip attributes
-or rename exported selectors during normalization. No Swift header reference is
-included here. Harmony C exports and ArkTS API remain separate, unbaselined
-surfaces while Huawei tooling and distribution are paused.
+Separately use the exact revision's release XCFramework from the existing
+iOS packaging step, or build it in the qualified scratch copy. Check both
+packaged slices and the same standalone Swift source, without simulator
+startup, signing, or publication:
+
+```bash
+# Run in the scratch checkout; omit the build only if the identical artifact exists.
+set -euo pipefail
+xcodebuild -version
+bash tools/build_ios_xcframework.sh
+xc=madcore/build/XCFrameworks/release/MadCore.xcframework
+for spec in ios-arm64:iphoneos:arm64-apple-ios15.0 \
+            ios-arm64-simulator:iphonesimulator:arm64-apple-ios15.0-simulator; do
+  IFS=: read -r slice sdk target <<< "$spec"
+  header="$xc/$slice/MadCore.framework/Headers/MadCore.h"
+  test -s "$header"
+  shasum -a 256 "$header"
+  xcrun --sdk "$sdk" swiftc -typecheck -target "$target" \
+    -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" -F "$xc/$slice" \
+    examples/ios-consumer/Consumer.swift
+done
+```
+
+Review raw headers separately by slice alongside the exact toolchain. If you
+have a previous authorized snapshot of the appropriate slice and toolchain,
+use `diff -u` (no stripping attributes or selectors). Don't require device
+and simulator headers to match each other. No header is stored in the repo
+or distributed by this candidate. A typecheck checks the tested call sites,
+not binary linking or runtime behavior; preserve existing App gates. Harmony
+C exports and ArkTS API are unbaselined while Huawei tooling and distribution
+are paused.
