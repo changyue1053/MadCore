@@ -76,6 +76,12 @@ jobs:
           test -e /dev/kvm
           sudo chmod a+rw /dev/kvm
           bash tools/test_android_maven_consumer.sh "$GITHUB_WORKSPACE/build/staging-repository/android"
+      - name: Probe the documented Android minimum on a separate API24 AVD
+        # First acceptance only on the same-repository MadCore Draft branch.
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'work/core-validation-testkit'
+        timeout-minutes: 20
+        shell: bash
+        run: bash tools/test_android_api24.sh "$GITHUB_WORKSPACE/build/staging-repository/android"
   ios:
     runs-on: macos-15
     timeout-minutes: 35

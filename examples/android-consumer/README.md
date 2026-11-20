@@ -42,3 +42,18 @@ references the existing Android SDK license, unlike the separately licensed ATD 
 Do not accept new agreements implicitly to reproduce this lane.
 
 This is not physical-device, public-TLS, minimum-API or UI acceptance coverage.
+
+## Separate minimum-runtime probe (API24)
+
+The Draft validation branch also has a clearly separate hosted API24 probe after
+the default API30 gate. It requires the API30 runner's existing KVM and emulator,
+an exact official AOSP x86_64 API24 package, and an already accepted matching
+Android SDK license fingerprint. It fails closed if the package/terms cannot be
+verified; it does not accept new terms. No label or third-party Actions are needed
+for the Draft branch's normal pull-request CI.
+
+The probe creates fresh AVD state, verifies its name, device set, ABI and
+`ro.build.version.sdk=24`, and runs the same independent Maven app and seven
+assertions via `:app:connectedDebugAndroidTest`. This is not a Gradle-managed API24
+device; API30 continues to use the unchanged managed device. Check the separate
+step and its exact-commit tests before interpreting API24 as runtime evidence.

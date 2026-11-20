@@ -3,11 +3,18 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
-if [[ $# != 1 || "$1" != /* || ! -d "$1" ]]; then
-  echo "Usage: bash tools/test_android_maven_consumer.sh /absolute/path/to/staging-repository/android" >&2
+if [[ $# -lt 1 || $# -gt 2 || "$1" != /* || ! -d "$1" || ( $# == 2 && "$2" != --connected-api24 ) ]]; then
+  echo "Usage: bash tools/test_android_maven_consumer.sh /absolute/path/to/staging-repository/android [--connected-api24]" >&2
   exit 2
 fi
 repository=$1
+test_task=:app:pixel2api30DebugAndroidTest
+if [[ ${2-} == --connected-api24 ]]; then
+  test "${GITHUB_ACTIONS:-}" = true
+  test "${RUNNER_ENVIRONMENT:-}" = github-hosted
+  test "${ANDROID_SERIAL:-}" = emulator-5580
+  test_task=:app:connectedDebugAndroidTest
+fi
 test -r /dev/kvm && test -w /dev/kvm
 work=$(mktemp -d)
 echo "Android Maven consumer diagnostics and test results: $work"
@@ -56,7 +63,13 @@ if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok ||
   tail -n 80 "$work/http-fixture.log"
   exit 1
 fi
+if [[ "$test_task" == :app:connectedDebugAndroidTest ]]; then
+  adb="${ANDROID_HOME:?}/platform-tools/adb"
+  # Recheck immediately before Gradle: never dispatch to another device.
+  test "$(timeout 10 "$adb" devices | awk 'NR > 1 && NF {print $1, $2}')" = "$ANDROID_SERIAL device"
+  test "$(timeout 10 "$adb" -s "$ANDROID_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')" = 24
+fi
 ./gradlew --no-daemon --no-configuration-cache -p "$consumer" -PmadcoreRepository="$repository" \
   -PupperRepository="$upper_repo" :app:verifyPublishedComposition \
-  :app:assembleDebug :app:pixel2api30DebugAndroidTest
+  :app:assembleDebug "$test_task"
 python3 tools/check_android_results.py "$consumer/app/build/outputs/androidTest-results"
