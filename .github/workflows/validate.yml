@@ -53,6 +53,10 @@ jobs:
           cp -R examples/jvm-consumer/. "$consumer/"
           ./gradlew --no-daemon -p "$consumer" -PmadcoreRepository="$GITHUB_WORKSPACE/build/staging-repository/jvm" run writeRuntimeClasspath
           python3 tools/check_jvm_classpath.py "$consumer/runtime-classpath.json"
+      - name: Verify the JVM ABI candidate detects compiled drift (no adopted baseline)
+        timeout-minutes: 8
+        shell: bash
+        run: bash tools/test_jvm_abi_candidate.sh
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 45

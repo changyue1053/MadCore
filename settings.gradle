@@ -1,5 +1,10 @@
 pluginManagement {
     def ohos = providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ohos'
+    // Reject this probe before resolving the paused Harmony compiler fork.
+    def abiProbe = providers.gradleProperty('madcore.abiProbe').getOrElse('false')
+    if (!(abiProbe in ['true', 'false']) || (abiProbe == 'true' && ohos)) {
+        throw new GradleException('madcore.abiProbe must be true/false and is unavailable for the paused ohos target')
+    }
     repositories {
         if (ohos) maven {
             url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/')

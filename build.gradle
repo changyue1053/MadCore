@@ -15,6 +15,12 @@ def target = providers.gradleProperty('madcore.target').getOrElse('jvm')
 if (!(target in ['jvm', 'android', 'ios', 'ohos'])) {
     throw new GradleException('madcore.target must be jvm, android, ios or ohos')
 }
+def abiProbe = providers.gradleProperty('madcore.abiProbe').getOrElse('false') == 'true'
+def abiModules = [] as Set
+if (abiProbe) {
+    def sdk = new groovy.json.JsonSlurper().parse(file('SDK-MODULES.json'))
+    abiModules = (sdk.production + [sdk.umbrella]) as Set
+}
 subprojects {
     apply plugin: 'org.jetbrains.kotlin.multiplatform'
     apply plugin: 'maven-publish'
@@ -45,6 +51,18 @@ subprojects {
         }
         sourceSets {
             commonTest.dependencies { implementation kotlin('test') }
+        }
+    }
+    if (abiProbe && abiModules.contains(project.name)) {
+        // KGP 2.2.21 supplies this experimental ABI extension. No additional plugin.
+        def abi = extensions.getByName('kotlin').extensions.getByName('abiValidation')
+        abi.enabled.set(true)
+        abi.klib.enabled.set(target == 'ios')
+        abi.klib.keepUnsupportedTargets.set(false)
+        abi.legacyDump.referenceDumpDir.set(rootProject.layout.projectDirectory.dir("api-baseline/${target}/${project.name}"))
+        def actualOutput = project.layout.buildDirectory.dir("api-baseline/${target}")
+        abi.legacyDump.legacyDumpTaskProvider.configure { dumpTask ->
+            dumpTask.dumpDir.set(actualOutput)
         }
     }
     if (target == 'android') {
