@@ -1,0 +1,26 @@
+plugins { id 'com.android.library'; id 'org.jetbrains.kotlin.android' }
+android {
+    namespace 'example.upper.alpha'
+    compileSdk 36
+    publishing { singleVariant('release') }
+    defaultConfig { minSdk 24 }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+kotlin { jvmToolchain(21) }
+def expectedCoreVersion = providers.gradleProperty('madcoreExpectedCoreVersion').getOrElse('0.1.0-SNAPSHOT')
+if (expectedCoreVersion.length() > 64 ||
+    (expectedCoreVersion != '0.1.0-SNAPSHOT' &&
+     !(expectedCoreVersion ==~ /(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)-rehearsal\.[1-9][0-9]*/))) {
+    throw new GradleException('Expected a snapshot or exact disposable MadCore rehearsal version')
+}
+dependencies { api "com.mad.core:madcore:${expectedCoreVersion}" }
+
+afterEvaluate {
+    def releaseComponent = components.getByName('release')
+    publishing.publications.named('release', MavenPublication) {
+        from releaseComponent
+    }
+}

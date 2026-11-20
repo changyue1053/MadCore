@@ -1,0 +1,68 @@
+name: Verify SDK version and Android packaged ABI (one Draft transition)
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths: ['.github/workflows/phase4-version-and-android-abi.yml']
+permissions:
+  contents: read
+jobs:
+  evidence:
+    name: Evidence (${{ matrix.lane }})
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.number == 1 &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft &&
+      github.event.before == 'afda9fa83ed36eec799965b3344b57eaceb11f08' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 26
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [jvm-version, android-aar]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 7
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check exact transition
+        shell: bash
+        run: |
+          test "$(git show -s --format=%P HEAD)" = afda9fa83ed36eec799965b3344b57eaceb11f08
+          test "$(git rev-parse HEAD~6)" = 9555b58b3af91165e4a1a2a8db02ba3c1903c24a
+          expected=$(printf '%s\n' A$'\t'.github/workflows/phase4-version-and-android-abi.yml M$'\t'build.gradle A$'\t'docs/SDK_VERSION.md M$'\t'madcore/build.gradle D$'\t'madcore/src/commonMain/kotlin/com/mad/core/MadCoreInfo.kt A$'\t'madcore/version-template/MadCoreInfo.kt.template A$'\t'tools/android-packaged-abi-analyzer/README.md A$'\t'tools/android-packaged-abi-analyzer/build.gradle A$'\t'tools/android-packaged-abi-analyzer/settings.gradle A$'\t'tools/android-packaged-abi-analyzer/src/main/java/PackagedAarAbi.java A$'\t'tools/android-packaged-abi-rehearsal/PackagedAarAbiWithControls.java A$'\t'tools/android-packaged-abi-rehearsal/README.md A$'\t'tools/compare_android_packaged_abi.py A$'\t'tools/compare_android_packaged_abi.sh A$'\t'tools/rehearse_android_packaged_abi.sh A$'\t'tools/test_android_packaged_abi.py A$'\t'tools/test_sdk_version_generation.sh)
+          test "$(git diff --no-renames --name-status HEAD^ HEAD)" = "$expected"
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify generated identity in staged JVM JARs before and after warm rebuild
+        if: matrix.lane == 'jvm-version'
+        shell: bash
+        run: |
+          umask 077
+          log=$(mktemp "${RUNNER_TEMP}/madcore-version.XXXXXXXX")
+          trap 'rm -f -- "$log"' EXIT
+          if bash tools/test_sdk_version_generation.sh >"$log" 2>&1; then
+            grep -Fx 'JVM producer version authority verified for default and warm rebuild' "$log"
+            exit
+          fi
+          reason=build-or-inventory
+          if grep -Fq 'Default generated Kotlin source differs' "$log"; then reason=default-source; fi
+          if grep -Fq 'JVM sources archive must contain' "$log"; then reason=source-archive; fi
+          if grep -Fq 'Unexpected JVM umbrella class inventory' "$log"; then reason=class-inventory; fi
+          if grep -Fq 'expected-api.txt' "$log"; then reason=public-descriptor; fi
+          if grep -Fq 'Packaged runtime identity disagrees' "$log"; then reason=runtime-version; fi
+          printf 'JVM producer version authority incomplete (%s)\n' "$reason"
+          exit 1
+      - name: Verify JVM API signatures in exact same-source Android release AARs
+        if: matrix.lane == 'android-aar'
+        shell: bash
+        run: |
+          python3 -B tools/test_android_packaged_abi.py
+          python3 -B -O tools/test_android_packaged_abi.py
+          bash tools/rehearse_android_packaged_abi.sh

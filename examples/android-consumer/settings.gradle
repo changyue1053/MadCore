@@ -1,0 +1,17 @@
+pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement {
+    repositories {
+        exclusiveContent {
+            forRepository { maven { url = uri(providers.gradleProperty('madcoreRepository').get()) } }
+            filter { includeGroup('com.mad.core') }
+        }
+        exclusiveContent {
+            forRepository { maven { url = uri(providers.gradleProperty('upperRepository').get()) } }
+            filter { includeGroup('example.madcore.upper') }
+        }
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'MadCoreAndroidConsumer'
+include ':app'

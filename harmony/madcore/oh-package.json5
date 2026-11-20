@@ -1,0 +1,1 @@
+{ "name": "madcore", "version": "0.1.0", "description": "Independent MadCore primitive native bridge preview", "main": "Index.ets", "dependencies": { "libmadcore_napi.so": "file:./src/main/cpp/types/libmadcore_napi" } }

@@ -1,0 +1,24 @@
+MADCORE_1 {
+    global:
+        madcore_abi_version;
+        madcore_epoch_millis;
+        madcore_json_object_valid;
+        madcore_copied_http_link_probe;
+        madcore_copied_http_test_start;
+        madcore_copied_http_test_poll;
+        madcore_copied_http_test_cancel;
+        mc_http_begin_request;
+        mc_http_next_request_v2;
+        mc_http_complete_response;
+        mc_http_poll_response;
+        mc_http_open;
+        mc_http_close;
+        mc_http_begin;
+        mc_http_next_request;
+        mc_http_state;
+        mc_http_complete;
+        mc_http_fail;
+        mc_http_cancel;
+        mc_http_poll;
+    local: *;
+};

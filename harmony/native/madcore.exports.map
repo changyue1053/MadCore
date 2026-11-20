@@ -1,0 +1,7 @@
+MADCORE_1 {
+    global:
+        madcore_abi_version;
+        madcore_epoch_millis;
+        madcore_json_object_valid;
+    local: *;
+};

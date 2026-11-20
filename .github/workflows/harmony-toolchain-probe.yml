@@ -1,0 +1,16 @@
+name: Inspect Harmony CLI metadata
+# Disabled for automatic PR events after license review. Do not dispatch without owner authorization.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify official archive and read SDK version and license metadata only
+        run: bash tools/probe_harmony_cli.sh

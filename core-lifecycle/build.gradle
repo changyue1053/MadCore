@@ -1,0 +1,11 @@
+// Host-serialized ownership and cleanup; no UI framework, scheduler or platform context.
+if (providers.gradleProperty('madcore.target').getOrElse('jvm') == 'ios') {
+    kotlin.targets.getByName('iosSimulatorArm64').testRuns.getByName('test').executionTask.configure {
+        def simulator = providers.environmentVariable('MADCORE_IOS_SIMULATOR_UDID').orNull
+        if (simulator != null) {
+            device.set(simulator)
+            standalone.set(false)
+        }
+        timeout.set(java.time.Duration.ofMinutes(5))
+    }
+}

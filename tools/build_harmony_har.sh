@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+# Owner authorized CLI 5.1.0.840 / SDK / Hvigor use for this build on 2026-11-18.
+# Historical build evidence is not permission to resume the paused SDK build.
+# No tools, SDK files or generated packages are distributed by this script.
+set -euo pipefail
+umask 077
+root=$(cd "$(dirname "$0")/.." && pwd)
+case "${MADCORE_COPIED_HTTP-0}" in
+  0) har_variant=default; har_output="$root/build/harmony/madcore.har" ;;
+  1) har_variant=experimental; har_output="$root/build/harmony/experimental/madcore.har" ;;
+  *) echo 'MADCORE_COPIED_HTTP must be 0 or 1' >&2; exit 2 ;;
+esac
+if [[ $# == 1 && "$1" == --print-output-path ]]; then
+  printf '%s\n' "$har_output"
+  exit 0
+fi
+if (( $# != 0 )); then
+  echo 'Usage: bash tools/build_harmony_har.sh [--print-output-path]' >&2
+  exit 2
+fi
+
+work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/madcore-har.XXXXXXXX")
+output_tmp=
+trap 'rm -rf -- "$work"; if [[ -n "$output_tmp" ]]; then rm -f -- "$output_tmp"; fi' EXIT
+
+# Both variants link to the same native build paths. Check private copies
+# before tool acquisition and package exactly the checked inputs.
+native="$root/madcore/build/bin/ohosArm64/releaseShared"
+snapshot="$work/native"
+mkdir -p "$snapshot"
+cp "$native/"libmadcore{,_napi}.so "$snapshot/"
+if [[ "$har_variant" == experimental ]]; then
+  cp "$native/libmadcore_copied_bridge.so" "$snapshot/"
+  python3 "$root/tools/check_copied_http_link.py" "$snapshot/libmadcore.so" "$snapshot/libmadcore_copied_bridge.so"
+else
+  for library in "$snapshot/"libmadcore{,_napi}.so; do
+    if ! symbols=$(readelf --dyn-syms --wide "$library"); then
+      echo 'Cannot check default native input symbols; refusing to package.' >&2
+      exit 1
+    fi
+    if grep -Eq 'mc_http_|madcore_copied_http' <<< "$symbols"; then
+      echo 'Experimental symbols in default native inputs; rebuild the default native variant.' >&2
+      exit 1
+    fi
+  done
+fi
+archive="$work/cli.zip"
+curl --fail --silent --show-error --proto '=https' --connect-timeout 30 --max-time 900 \
+  --max-filesize 3221225472 --output "$archive" \
+  https://repo.huaweicloud.com/harmonyos/ohpm/5.1.0/commandline-tools-linux-x64-5.1.0.840.zip
+printf '%s  %s\n' 1dcefa4741dc289277560b2802040e0c45b433898d8db453d711d5376e0478f1 "$archive" | sha256sum -c -
+unzip -q "$archive" -d "$work/tools"
+rm "$archive"
+cli="$work/tools/command-line-tools"
+# Isolate package-manager user configuration/cache; no user tokens or shared executable cache.
+export HOME="$work/home"
+mkdir -p "$HOME"
+export NPM_CONFIG_USERCONFIG="$work/empty.npmrc"
+: > "$NPM_CONFIG_USERCONFIG"
+test -d "$cli/sdk/default"
+python3 "$root/tools/index_tool_terms.py" "$cli" "$root/build/validation/harmony-tool-terms-index.json"
+export DEVECO_SDK_HOME="$cli/sdk"
+nodebin=$(find "$cli" -path '*/bin/node' -type f -print -quit)
+if [[ -n "$nodebin" ]]; then
+  export NODE_HOME=$(dirname "$(dirname "$nodebin")")
+  export PATH="$NODE_HOME/bin:$PATH"
+fi
+export PATH="$cli/hvigor/bin:$cli/ohpm/bin:$PATH"
+test -x "$cli/hvigor/bin/hvigorw"
+test -x "$cli/ohpm/bin/ohpm"
+node --version
+npm --version
+hvigorw --version
+project="$work/sdk-project"
+mkdir -p "$project"
+cp -R "$root/harmony/." "$project/"
+mkdir -p "$project/madcore/libs/arm64-v8a"
+cp "$snapshot/"libmadcore{,_napi}.so "$project/madcore/libs/arm64-v8a/"
+if [[ "$har_variant" == experimental ]]; then
+  cp "$snapshot/libmadcore_copied_bridge.so" "$project/madcore/libs/arm64-v8a/"
+  python3 "$root/tools/prepare_copied_http_har.py" sdk "$project"
+fi
+(cd "$project" && ohpm install --all && hvigorw assembleHar --mode module -p module=madcore@default -p product=default -p buildMode=release --no-daemon)
+har=$(find "$project/madcore/build" -name '*.har' -type f -print -quit)
+test -n "$har"
+python3 - "$har" <<'PY'
+import sys,tarfile,zipfile,json,posixpath
+p=sys.argv[1]
+if zipfile.is_zipfile(p):
+    with zipfile.ZipFile(p) as a: data={n:a.read(n) for n in a.namelist() if not n.endswith('/')}
+else:
+    with tarfile.open(p) as a: data={m.name:a.extractfile(m).read() for m in a.getmembers() if m.isfile()}
+names=list(data)
+print('HAR inventory:', names)
+for expected in ('libmadcore.so','libmadcore_napi.so'):
+    assert any(n.endswith('/'+expected) or n==expected for n in names), expected+' missing from HAR'
+manifests=[n for n in names if n.endswith('oh-package.json5') and 'src/main/cpp/' not in n]
+assert manifests, 'HAR package manifest missing'
+# The compiler may transform Index.ets to a declaration/compiled entry. Check the manifest,
+# not a guessed source filename; the external consumer below verifies actual consumption.
+manifest=min(manifests,key=lambda n:n.count('/'))
+meta=json.loads(data[manifest]);print('HAR package metadata:',meta)
+bytecode=meta.get('metadata',{}).get('byteCodeHar') is True
+entry=meta.get('types') if bytecode else meta.get('main')
+assert isinstance(entry,str) and entry, 'HAR declaration/main entry absent'
+if bytecode:
+    abc=posixpath.join(posixpath.dirname(manifest),'ets/modules.abc')
+    assert data.get(abc), 'Bytecode HAR implementation is missing'
+resolved=posixpath.normpath(posixpath.join(posixpath.dirname(manifest),entry))
+assert resolved in data, 'HAR declared main entry missing: '+resolved
+print('HAR manifest entry and both independent native libraries verified')
+PY
+# Consume only the built HAR in a second project outside the repository/source tree.
+consumer="$work/consumer"
+mkdir -p "$consumer/consumer/libs"
+cp -R "$project/AppScope" "$project/hvigor" "$consumer/"
+cp "$project/hvigorfile.ts" "$project/oh-package.json5" "$consumer/"
+cp "$har" "$consumer/consumer/libs/madcore.har"
+mkdir -p "$consumer/consumer/src/main"
+cp "$project/madcore/hvigorfile.ts" "$project/madcore/build-profile.json5" "$consumer/consumer/"
+python3 - "$project" "$consumer" <<'PY'
+import sys,pathlib,json
+p,c=map(pathlib.Path,sys.argv[1:])
+b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='consumer';b['modules'][0]['srcPath']='./consumer';(c/'build-profile.json5').write_text(json.dumps(b))
+(c/'consumer/src/main/module.json5').write_text(json.dumps({'module':{'name':'consumer','type':'har','deviceTypes':['phone']}}))
+(c/'consumer/oh-package.json5').write_text(json.dumps({'name':'madcore-consumer','version':'0.1.0','main':'Index.ets','dependencies':{'madcore':'file:./libs/madcore.har'}}))
+(c/'consumer/Index.ets').write_text("import { MadCore, PreferencesStringStore, NamespacedStringStore, RcpHttpClient, RcpRequest, ResourceScope, CloseableResource } from 'madcore';\nimport { preferences } from '@kit.ArkData';\nexport function checkCoreAbi(): boolean { return MadCore.abiVersion() === 1 && MadCore.isJsonObject('{}'); }\nexport async function consumeStorage(backend: preferences.Preferences): Promise<void> { const storage = new PreferencesStringStore(backend); const store = new NamespacedStringStore(storage, 'consumer'); store.put('test', 'value'); const value: string | null = store.get('test'); store.remove('test'); await storage.flush(); }\nexport async function consumeHttp(url: string): Promise<number> { const client = new RcpHttpClient(); const result = await client.execute(new RcpRequest(url)); return result.status; }\nclass OwnedResource implements CloseableResource { calls: number = 0; close(): void { this.calls++; } }\nexport function consumeLifecycle(): boolean { const owned = new OwnedResource(); const scope = new ResourceScope(); scope.register(owned); const report = scope.close(); return report.attempted === 1 && report.failed === 0 && owned.calls === 1; }\n")
+PY
+(cd "$consumer" && ohpm install --all && hvigorw assembleHar --mode module -p module=consumer@default -p product=default -p buildMode=release --no-daemon)
+find "$consumer/consumer/build" -name '*.har' -type f | grep .
+# Two independent upper SDKs: source modules compile against Core as a development
+# dependency. Their final consumer explicitly supplies Core; this is not a test of
+# published transitive dependency metadata or independent version negotiation.
+composition="$work/composition"
+mkdir -p "$composition"
+for upper in alpha beta; do
+  upperdir="$composition/$upper"
+  mkdir -p "$upperdir/upper/src/main" "$upperdir/artifacts"
+  cp -R "$project/AppScope" "$project/hvigor" "$upperdir/"
+  cp "$project/hvigorfile.ts" "$project/oh-package.json5" "$upperdir/"
+  cp "$project/madcore/hvigorfile.ts" "$project/madcore/build-profile.json5" "$upperdir/upper/"
+  cp "$har" "$upperdir/artifacts/madcore.har"
+  python3 - "$project" "$upperdir" "$upper" <<'PYUPPER'
+import sys,pathlib,json
+p,c=map(pathlib.Path,sys.argv[1:3]);name=sys.argv[3]
+b=json.loads((p/'build-profile.json5').read_text());b['modules'][0]['name']='upper';b['modules'][0]['srcPath']='./upper';(c/'build-profile.json5').write_text(json.dumps(b))
+(c/'upper/src/main/module.json5').write_text(json.dumps({'module':{'name':'upper','type':'har','deviceTypes':['phone']}}))
+(c/'upper/oh-package.json5').write_text(json.dumps({'name':'madcore-upper-'+name,'version':'0.1.0','main':'Index.ets','dependencies':{'madcore':'0.1.0'}}))
+rootmeta=json.loads((c/'oh-package.json5').read_text());rootmeta['overrides']={'madcore':'file:./artifacts/madcore.har'};(c/'oh-package.json5').write_text(json.dumps(rootmeta))
+source = "import { StringStore, NamespacedStringStore } from 'madcore';\n"
+if name == 'alpha':
+    source += "export function alphaStore(backend: StringStore): NamespacedStringStore { return new NamespacedStringStore(backend, 'alpha'); }\n"
+else:
+    source += "export function betaUse(store: NamespacedStringStore): StringStore { store.put('shared', 'beta'); return store; }\n"
+(c/'upper/Index.ets').write_text(source)
+PYUPPER
+  (cd "$upperdir" && ohpm install --all && hvigorw assembleHar --mode module -p module=upper@default -p product=default -p buildMode=release --no-daemon)
+  upperhar=$(find "$upperdir/upper/build" -path '*/outputs/*' -name 'upper.har' -type f -print -quit)
+  test -n "$upperhar"
+  cp "$upperhar" "$composition/$upper.har"
+done
+# Remove upper projects and their development Core copies before final consumption.
+rm -rf -- "$composition/alpha" "$composition/beta"
+# Also assemble an independent unsigned application, still using only the HAR.
+app="$work/app-consumer"
+cp -R "$root/examples/harmony-consumer" "$app"
+if [[ "$har_variant" == experimental ]]; then
+  python3 "$root/tools/prepare_copied_http_har.py" app "$app"
+fi
+mkdir -p "$app/libs"
+cp "$har" "$app/libs/madcore.har"
+cp "$composition/alpha.har" "$composition/beta.har" "$app/libs/"
+python3 - "$app" "$root/tools/harmony_upper_composition.ets" <<'PYAPP'
+import sys,pathlib,json
+p=pathlib.Path(sys.argv[1]);m=p/'entry/oh-package.json5';d=json.loads(m.read_text())
+d['dependencies']['madcore-upper-alpha']='file:../libs/alpha.har'
+d['dependencies']['madcore-upper-beta']='file:../libs/beta.har'
+m.write_text(json.dumps(d))
+rootmeta=json.loads((p/'oh-package.json5').read_text());rootmeta['overrides']={'madcore':'file:./libs/madcore.har'};(p/'oh-package.json5').write_text(json.dumps(rootmeta))
+# Import into a real page so this is not an unreferenced source file.
+page=p/'entry/src/main/ets/pages/Index.ets'
+source=page.read_text()
+prefix="import { StringStore, NamespacedStringStore } from 'madcore';\nimport { alphaStore } from 'madcore-upper-alpha';\nimport { betaUse } from 'madcore-upper-beta';\n"
+probe='\n'+pathlib.Path(sys.argv[2]).read_text()
+source=source.replace('const count: number = runNativeSmoke();', 'upperComposition();\n      const count: number = runNativeSmoke();').replace("this.status = 'Native boundary smoke passed on this device';", "this.status = 'DUAL_HAR_RUNTIME_PASS + native smoke';")
+page.write_text(prefix+source+probe)
+PYAPP
+# Test app supplies its SDK C++ runtime. This is ephemeral validation, not a published package.
+cxx=$(find "$cli/sdk/default/openharmony/native" -path '*/aarch64-linux-ohos/*' -name libc++_shared.so -type f -print -quit)
+test -n "$cxx"
+mkdir -p "$app/entry/libs/arm64-v8a"
+cp "$cxx" "$app/entry/libs/arm64-v8a/"
+(cd "$app" && ohpm install --all && hvigorw assembleHap --mode module -p module=entry@default -p product=default -p buildMode=debug --no-daemon)
+hap=$(find "$app/entry/build" -name '*unsigned.hap' -type f -print -quit)
+if [[ -z "$hap" ]]; then hap=$(find "$app/entry/build" -name '*.hap' -type f -print -quit); fi
+test -n "$hap"
+python3 "$root/tools/check_harmony_composition.py" "$har" "$composition/alpha.har" "$composition/beta.har" "$hap" "$har_variant"
+
+# Fail rather than silently restoring the vulnerable wrapper-managed pnpm dependency.
+if [[ -d "$HOME/.hvigor" ]] && find "$HOME/.hvigor" -path '*/node_modules/pnpm/package.json' -print -quit | grep -q .; then
+  echo 'Unexpected pnpm installed despite explicit useNpm configuration' >&2
+  exit 1
+fi
+echo 'Hvigor npm mode compatibility passed with isolated HOME and no wrapper pnpm installed'
+
+# Stage only the selected local output after every gate passes. Keep the
+# temporary file alongside its destination for atomic replacement.
+mkdir -p "$(dirname "$har_output")"
+output_tmp=$(mktemp "${har_output}.XXXXXXXX")
+cp -- "$har" "$output_tmp"
+python3 -c 'import os, sys; os.replace(sys.argv[1], sys.argv[2])' "$output_tmp" "$har_output"
+output_tmp=
+printf 'Checked %s HAR: %s; no Harmony device execution or redistribution clearance\n' "$har_variant" "$har_output"

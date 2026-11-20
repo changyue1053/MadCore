@@ -6,3 +6,6 @@ local.properties
 .DS_Store
 __pycache__/
 *.pyc
+**/oh_modules/
+**/.hvigor/
+harmony/madcore/libs/

@@ -1,0 +1,63 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.2.21'
+    id 'application'
+}
+repositories {
+    maven { url = uri(providers.gradleProperty('madcoreRepository').get()) }
+    mavenCentral()
+}
+kotlin { jvmToolchain(21) }
+dependencies {
+    implementation 'com.mad.core:madcore:0.1.0-SNAPSHOT'
+    implementation 'com.mad.core:core-testkit:0.1.0-SNAPSHOT'
+}
+application { mainClass = 'MainKt' }
+
+// Resolve artifacts only, then let the repository audit reject overlapping API classes.
+tasks.register('writeRuntimeClasspath') {
+    doLast {
+        file('runtime-classpath.json').text = groovy.json.JsonOutput.toJson(
+            configurations.runtimeClasspath.files.collect { it.absolutePath })
+    }
+}
+
+// Intentionally consume physical JAR files, NOT Gradle project dependency variants.
+// Upper SDKs independently compile against the same staged Maven publication.
+['upper-alpha', 'upper-beta'].each { name ->
+    def producer = project(':' + name)
+    evaluationDependsOn(producer.path)
+    def jarTask = producer.tasks.named('jar')
+    dependencies.add('implementation', files(jarTask.flatMap { it.archiveFile }).builtBy(jarTask))
+}
+
+tasks.register('verifyUpperSdkArtifacts') {
+    dependsOn ':upper-alpha:jar', ':upper-beta:jar'
+    doLast {
+        def jars = configurations.runtimeClasspath.files.findAll { it.name.endsWith('.jar') }
+        def upper = ['upper-alpha', 'upper-beta'].collect { name ->
+            project(':' + name).tasks.named('jar').get().archiveFile.get().asFile
+        }
+        upper.each { jar ->
+            if (!jars.contains(jar)) throw new GradleException('Upper SDK JAR absent from host runtime')
+            new java.util.zip.ZipFile(jar).withCloseable { zip ->
+                if (zip.entries().toList().any { it.name.startsWith('com/mad/core/') }) {
+                    throw new GradleException('Upper SDK must not embed Core classes')
+                }
+            }
+        }
+        def owners = jars.findAll { jar ->
+            new java.util.zip.ZipFile(jar).withCloseable { zip ->
+                zip.getEntry('com/mad/core/storage/StringStore.class') != null
+            }
+        }
+        if (owners.size() != 1) throw new GradleException('Expected exactly one Core StringStore class provider')
+        def components = configurations.runtimeClasspath.incoming.resolutionResult.allComponents.findAll {
+            it.moduleVersion?.group == 'com.mad.core'
+        }
+        def coordinates = components.collect { it.moduleVersion.toString() }
+        if (coordinates.size() != coordinates.toSet().size()) throw new GradleException('Duplicate resolved Core component')
+        if (components.any { it.moduleVersion.version != '0.1.0-SNAPSHOT' }) throw new GradleException('Core version mismatch')
+        println('Two separate upper SDK JARs share one Core StringStore artifact; no Core classes embedded')
+    }
+}
+tasks.named('run') { dependsOn 'verifyUpperSdkArtifacts' }

@@ -1,0 +1,159 @@
+# Experimental Kotlin / RCP copied HTTP bridge
+
+This opt-in slice connects a real Kotlin `AsyncHttpTransport` caller through one
+C registry, an owner-loop NAPI/ArkTS pump, Huawei RCP, and copied results back to
+Kotlin. It is not part of the default supported transport or a release claim.
+Stable synchronous APIs are unchanged.
+
+## Ownership and finite bounds
+
+`-Pmadcore.copiedHttp=true` adds cinterop and the experimental Kotlin sources.
+The C archive is embedded once in `libmadcore.so`; the additional NAPI facade
+imports that registry, never compiles another copy. Link checks enforce this.
+Only monotonically allocated value IDs cross runtimes. C holds no Kotlin object,
+continuation or NAPI reference. A mutex fences lookup/copy/close. The environment
+cleanup hook closes owned C sessions without calling Kotlin.
+
+Four sessions, eight operations each; URL 2048 ASCII bytes, headers 16 KiB,
+request/response body 64 KiB, timeout at most 120 seconds. GET/POST/PUT/DELETE,
+request headers/body, status/response headers/body and policy are copied.
+Malformed metadata fails closed. Default TLS trust and no-follow redirects remain
+mandatory. Cleartext requires explicit request policy. Header JSON has bounded
+strict UTF-8 decoding and rejects duplicates/malformed values.
+
+ArkTS retains platform work separately. Its eight-outstanding-fetch quota is
+released only when the actual fetch promise settles (or throws synchronously).
+Cancel, timeout and close invalidate logical work and request platform cancellation;
+they do not release this quota early or claim platform callbacks are drained.
+A never-settling promise can exhaust capacity rather than permit unbounded work.
+For every started transport call, **`isDrained` remains false**. This is an explicit
+integration limitation for callers requiring proven quiescence.
+
+## Reference build recipe (paused)
+
+Do not execute these Harmony build commands while SDK-license applicability is
+under review.
+
+1. Build the opt-in native library, then `bash tools/build_copied_http_bridge.sh`.
+2. `MADCORE_COPIED_HTTP=1 bash tools/build_harmony_har.sh` stages the experimental
+   HAR at `build/harmony/experimental/madcore.har`. The default invocation stages
+   only `build/harmony/madcore.har` and rejects experimental native inputs. An old
+   output is not proof that the last build succeeded.
+3. For an authorized device session, use the existing device runbook and controlled
+   `tools/http_fixture.py --tls`. Supply loopback HTTP/TLS origins explicitly.
+   Select **Run experimental Kotlin RCP bridge**. No public endpoint, trust bypass,
+   credentials or background upload is used. Remove test reverse ports and stop
+   the fixture afterward. Build scripts do not publish binary artifacts.
+
+## Runtime evidence, 2026-11-19 UTC
+
+An isolated Mac arm64 CPF 2.2.21-1.0.0 / Clang 19.1.4 /
+sysroot 6.0.2.640-04 native build, packaged with existing DevEco SDK 26.0.0.105,
+ran on a positively identified Pura 90 arm64 API 23 simulator. The final unsigned
+private HAP SHA256 was
+`f16591014130bdd7ddc77ed42a565231a0dc13aca3f178443b9a58c68d5601f8`.
+The harness displayed `COPIED_RCP_KOTLIN_PASS`; ordinary native smoke also passed.
+
+The eleven real request cases are GET body, POST header/body, PUT body, DELETE,
+HTTP 400, response header copying, 302 no-follow, streamed response cap, timeout,
+logical cancellation, and rejection of a self-signed TLS endpoint. Kotlin checks
+returned status/body/headers. Fixture redirect hits remained zero; TLS handshake
+attempts increased while TLS HTTP requests remained zero. Additional checks cover
+eight-operation capacity, explicit close, synthetic late completion rejection,
+new-session isolation and a fresh request after close.
+
+Slow RCP work was initiated before cancellation/close; waiting afterward is **not**
+evidence that its late callback arrived or native work drained. The fixture and
+both test reverse ports were cleaned up. No binary or screenshot was published.
+
+## Other checks and remaining gates
+
+- C ASan/UBSan tests include bounded copy, races, close/cancel/late and ID exhaustion.
+  LeakSanitizer is unavailable on the Mac host and explicitly disabled there.
+- Exact ETS source with import-only host mocks covers success, malformed headers,
+  synchronous fetch failure, cancellation/late/close, and never-settling quota.
+- Kotlin codec JVM tests cover malformed UTF-8, escapes/surrogates, duplicate keys,
+  controls and size limits. Native link checks verify one registry ownership.
+- Official pinned API18 CI compilation is a separate gate, not implied by this
+  SDK26/API23 device run. API18 runtime, physical devices, cross-environment teardown
+  stress and proven transport drain remain unverified.
+- Default platform CI and independent consumers remain required. Source readiness
+  does not resolve third-party binary redistribution or project-license decisions.
+
+## Fixture isolation correction
+
+CI on 96f6c7de caught a regression introduced by the experiment: a new header
+guard on shared POST `/echo` broke Android's existing 201/raw-body contract.
+The guard now uses dedicated `/bridge-echo`; legacy semantics and binary/empty
+bodies have regression tests. The corrected bridge was rebuilt cleanly and all
+eleven simulator cases passed again, with zero redirect/TLS HTTP hits and one
+TLS handshake attempt. Initial reruns were not passes: a detached fixture exited,
+and an incremental HAR build retained old bytecode. The clean rebuild verified
+`/bridge-echo` in the compiled HAR before installation. Use fresh isolated copies
+or `hvigorw clean` when changing root-level ETS sources. No failed run is counted
+as evidence. Full corrected-head CI remains a separate required gate.
+
+## Eight-slot close/reopen recovery evidence
+
+After a9f13401 passed all four jobs in CI run 44459298311, the finite harness was
+extended without changing production dispatch or drain semantics. On the same
+Pura90/API23 simulator and toolchain, a clean rebuilt private HAP with SHA256
+`527a374589286746e11f78074bf3b2e0e3400ae989eb437231803ccf73b3be2b`
+passed the existing eleven cases plus the following sequence, twice in the same
+ArkTS app environment without restarting between runs:
+
+1. Wait for actual Promise-finally accounting to reach zero, with a test deadline.
+2. Queue eight slow requests in A before one synchronous pump; require eight
+   accepted, unsettled fetch Promises.
+3. Close A; the outstanding quota must remain eight immediately. Its IDs are
+   invalid and synthetic late completion cannot recreate them.
+4. Open B with free C slots; its first request must fail because the shared fetch
+   quota is still full. No timeout or close manually decrements that quota.
+5. Observe actual settlements reducing the quota to zero. Queue and dispatch eight
+   slow-success calls in B before yielding; require all eight slots admitted.
+6. Receive and check all eight Kotlin HTTP results and eventual zero outstanding
+   Promise count; old A IDs remain invalid before and after recovery.
+
+The UI again reported `COPIED_RCP_KOTLIN_PASS`. Across these two runs, TLS attempts
+were two, TLS HTTP requests zero, and redirect target requests zero. Test fixture
+and reverse ports were removed. Exact-source host mocks independently exercise
+single-slot recovery, full recovery and a further full batch. The deadline only
+fails the test; it never releases capacity or manufactures settlement.
+
+This demonstrates **application admission quota recovery**, not eight concurrent
+server connections, physical-resource reclamation, environment destruction or
+native callback drain. RCP listener ordering was not asserted. `isDrained` stays
+false. Official cancel/close/Promise documentation supplies no native teardown
+ordering guarantee; runtime traces alone cannot supply that guarantee either.
+
+## Actual Worker environment destruction, network-free
+
+A further opt-in harness uses the official Worker/environment-cleanup route, not
+an explicit driver close or whole-process restart. On the same SDK26/API23 setup,
+private HAP SHA256
+`0801da3375f408561903d7fb700df91ce9755401ae2184c16d5d5c5494b16022`
+reported `COPIED_ENVIRONMENT_DETACH_PASS` twice without restarting the app.
+
+A Worker imports the same native module, opens all four C sessions, and starts
+one Kotlin test request per session. The fixed loopback URL is never pumped or
+dispatched: there is no RCP call or network fixture. The host first requires its
+own open to fail with capacity, proving a shared process-local registry rather
+than independent copies. It then terminates the Worker without closing its IDs.
+After a clean exit notification, it separately waits for all four slots to become
+reclaimable; onexit is not treated as an ordered cleanup fence. Reclaimed session
+and operation IDs must be larger, stale operation completion under fresh sessions
+must fail, and new queued calls must cancel/poll successfully. A fifth open must
+still fail with capacity. The host finally closes only its own reclaimed sessions.
+
+No production cleanup implementation changed: the existing per-environment NAPI
+hook closes C-owned sessions and frees its own context, with no Kotlin references
+or native queued callbacks. The runtime result demonstrates that hook's registry
+reclamation in this Worker scenario. It does **not** validate environment teardown
+with active RCP streaming/Promise callbacks, UI application destruction, API18
+runtime, physical devices, or general platform quiescence. Keep the bridge
+experimental; do not convert this result into `isDrained=true`.
+
+Primary references: [Huawei V5 cleanup-hook guide](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/use-napi-about-cleanuphook-V5/)
+and [Worker guide](https://developer.huawei.com/consumer/en/doc/harmonyos-guides-V5/worker-introduction-V5/).
+The test follows their lifecycle route, while checking observable registry state
+rather than assuming cleanup order from documentation alone.

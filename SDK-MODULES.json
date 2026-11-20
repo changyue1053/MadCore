@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "group": "com.mad.core",
+  "version": "0.1.0-SNAPSHOT",
+  "umbrella": "madcore",
+  "production": ["core-extension", "core-time", "core-json", "core-logging", "core-config", "core-net", "core-storage", "core-lifecycle"],
+  "optInTestOnly": ["core-testkit"],
+  "allowedExternal": ["org.jetbrains.kotlin:kotlin-stdlib", "org.jetbrains.kotlin:kotlin-stdlib-common", "org.jetbrains.kotlin:kotlin-stdlib-jdk7", "org.jetbrains.kotlin:kotlin-stdlib-jdk8", "org.jetbrains:annotations"],
+  "releaseStatus": "development-only; no public release approved"
+}

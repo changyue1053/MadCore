@@ -1,0 +1,40 @@
+name: Rehearse iOS immutable Maven (one Draft transition)
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+    paths: ['.github/workflows/phase4-ios-immutable-maven.yml']
+permissions:
+  contents: read
+jobs:
+  ios:
+    name: iOS immutable storage (link only)
+    if: >-
+      github.repository == 'changyue1053/MadCore' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft &&
+      github.event.pull_request.number == 1 &&
+      github.event.before == '5145f4fbc15c401d1f6566c8c512821cc551bc43' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'work/core-validation-testkit'
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.0.1.app/Contents/Developer
+      # Disposable version token; not a selected release version.
+      REHEARSAL_TOKEN: 0.1.0-rehearsal.1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test layout and rejection paths without Apple tooling
+        run: python3 -B tools/test_immutable_ios_maven_rehearsal.py && python3 -B -O tools/test_immutable_ios_maven_rehearsal.py
+      - name: Stage native KLIBs and link independent simulator executable
+        shell: bash
+        run: bash tools/rehearse_immutable_ios_maven.sh "$REHEARSAL_TOKEN"

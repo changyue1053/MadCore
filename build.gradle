@@ -1,20 +1,44 @@
+// Non-Android builds must not resolve the Android plugin or its transitive toolchain.
+// Keep the same pinned AGP for Android; apply it to subprojects below.
+buildscript {
+    if (project.providers.gradleProperty('madcore.target').getOrElse('jvm') == 'android') {
+        repositories { google(); mavenCentral() }
+        dependencies { classpath 'com.android.tools.build:gradle:8.13.2' }
+    }
+}
+
 plugins {
     id 'org.jetbrains.kotlin.multiplatform' apply false
-    id 'com.android.library' apply false
 }
 
 def target = providers.gradleProperty('madcore.target').getOrElse('jvm')
 if (!(target in ['jvm', 'android', 'ios', 'ohos'])) {
     throw new GradleException('madcore.target must be jvm, android, ios or ohos')
 }
+// This manifest is the producer version authority; consumers still pin independently.
+def manifest = layout.projectDirectory.file('SDK-MODULES.json')
+def sdk = new groovy.json.JsonSlurper().parseText(providers.fileContents(manifest).asText.get())
+def sdkVersion = sdk.version
+if (!(sdkVersion instanceof String) || sdkVersion.length() > 64 ||
+        !(sdkVersion ==~ /(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?/)) {
+    throw new GradleException('Invalid SDK-MODULES.json version; expected X.Y.Z with an optional Maven qualifier')
+}
+def abiProbe = providers.gradleProperty('madcore.abiProbe').getOrElse('false') == 'true'
+def abiModules = [] as Set
+if (abiProbe) {
+    abiModules = (sdk.production + [sdk.umbrella]) as Set
+}
 subprojects {
     apply plugin: 'org.jetbrains.kotlin.multiplatform'
     apply plugin: 'maven-publish'
     if (target == 'android') apply plugin: 'com.android.library'
     group = 'com.mad.core'
-    version = '0.1.0-SNAPSHOT'
+    version = sdkVersion
     repositories {
-        if (target == 'ohos') maven { url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/') }
+        if (target == 'ohos') maven {
+            url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/')
+            content { includeVersionByRegex('.*', '.*', '.+-[0-9]+\\.[0-9]+\\.[0-9]+') }
+        }
         google()
         mavenCentral()
     }
@@ -36,6 +60,18 @@ subprojects {
             commonTest.dependencies { implementation kotlin('test') }
         }
     }
+    if (abiProbe && abiModules.contains(project.name)) {
+        // KGP 2.2.21 supplies this experimental ABI extension. No additional plugin.
+        def abi = extensions.getByName('kotlin').extensions.getByName('abiValidation')
+        abi.enabled.set(true)
+        abi.klib.enabled.set(target == 'ios')
+        abi.klib.keepUnsupportedTargets.set(false)
+        abi.legacyDump.referenceDumpDir.set(rootProject.layout.projectDirectory.dir("api-baseline/${target}/${project.name}"))
+        def actualOutput = project.layout.buildDirectory.dir("api-baseline/${target}")
+        abi.legacyDump.legacyDumpTaskProvider.configure { dumpTask ->
+            dumpTask.dumpDir.set(actualOutput)
+        }
+    }
     if (target == 'android') {
         android {
             namespace = 'com.mad.core.' + project.name.replace('-', '.')
@@ -47,7 +83,7 @@ subprojects {
         repositories {
             maven {
                 name = 'staging'
-                url = rootProject.layout.buildDirectory.dir('staging-repository')
+                url = rootProject.layout.buildDirectory.dir("staging-repository/${target}")
             }
         }
     }
