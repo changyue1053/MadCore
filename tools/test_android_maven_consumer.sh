@@ -77,15 +77,43 @@ if [[ "$mode" == --build-only ]]; then
   exit 0
 fi
 
-python3 tools/http_fixture.py --tls > "$work/http-fixture.log" 2>&1 &
+# Only the disposable Debug app can trust the positive fixture. Make no change
+# to production code, system trust, the source example or the release variant.
+debug="$consumer/app/src/debug"
+mkdir -p "$debug/res/raw" "$debug/res/xml"
+ca="$debug/res/raw/madcore_fixture_ca.pem"
+cat > "$debug/AndroidManifest.xml" <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/madcore_fixture_network" />
+</manifest>
+EOF
+cat > "$debug/res/xml/madcore_fixture_network.xml" <<'EOF'
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <trust-anchors>
+            <certificates src="@raw/madcore_fixture_ca" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
+EOF
+python3 tools/http_fixture.py --tls --android-ca "$ca" > "$work/http-fixture.log" 2>&1 &
 fixture=$!
 cleanup_fixture() {
   kill "$fixture" 2>/dev/null || true
   wait "$fixture" 2>/dev/null || true
 }
 trap cleanup_fixture EXIT
-if ! curl --fail --retry 5 --retry-connrefused http://127.0.0.1:18082/ok ||
-   ! curl --fail http://127.0.0.1:18082/tls-ready; then
+if ! curl --noproxy '*' --fail --retry 5 --retry-connrefused --retry-max-time 30 \
+     --max-time 5 http://127.0.0.1:18082/ok ||
+   ! curl --noproxy '*' --fail --max-time 5 http://127.0.0.1:18082/tls-ready ||
+   [[ "$(curl --noproxy '*' --fail --max-time 5 --cacert "$ca" \
+     https://127.0.0.1:28443/ok)" != hello ]]; then
   tail -n 80 "$work/http-fixture.log"
   exit 1
 fi

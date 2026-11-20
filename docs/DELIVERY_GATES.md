@@ -8,15 +8,20 @@ required merely to make this foundation useful.
 
 ## Current evidence and supported scope
 
-Latest completed CI baseline before the acceptance-hardening work:
-[`9b8b8fe1`, run 44668976044](https://github.com/changyue1053/MadCore/actions/runs/44668976044).
-JVM and iOS passed. Android passed all seven independent Maven-consumer checks
-on API30. The separate API24 image license fingerprint preflight then failed
-before installation or boot, so the Android job and overall run are not green;
-this is not an API24 runtime failure. Harmony was intentionally skipped. **Harmony
-tool execution and local builds remain paused** pending license applicability
-review for reusable SDK development, not merely binary redistribution.
-These results apply to that exact commit, not to later edits.
+Phase 1 exact-head CI:
+[`070e0f53`, run 44734268652](https://github.com/changyue1053/MadCore/actions/runs/44734268652).
+JVM passed. Android assembled the independent host and instrumentation APKs
+without a device and passed all seven then-required API30 checks. The separate
+API24 preflight found an acceptance file with one well-formed fingerprint but
+no exact match for the pinned image: no image installation, boot or runtime test
+took place. The Android job and overall run were not green. iOS passed with
+Xcode 16.4 (16F6); the independent Swift and Kotlin umbrella hosts ran on
+iPhone 16 Pro / iOS 18.5 simulator. Harmony archive guards passed on the host;
+the actual Harmony job was intentionally skipped.
+
+These results apply to that exact commit, not to later edits. **Harmony tool
+execution and local builds remain paused** pending license applicability review
+for reusable SDK development, not merely binary redistribution.
 
 Historical verified four-job baseline: **6d5b5c6940d9d026ed68020c23aec5bcb65998a6**,
 [CI 44463243979](https://github.com/changyue1053/MadCore/actions/runs/44463243979),

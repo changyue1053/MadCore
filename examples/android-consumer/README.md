@@ -4,8 +4,8 @@ This standalone app declares only `example.madcore.upper:alpha:0.1.0` and
 `example.madcore.upper:beta:0.1.0`. These are local, development-only Android
 release Maven publications, not external package coordinates. Each upper SDK
 declares Core as a transitive API dependency. The app has no raw AAR or direct
-Core dependency. Its seven API30 instrumentation cases cover the upper libraries'
-shared store identity and mutation, HTTP policy and untrusted TLS rejection,
+Core dependency. Its eight API30 instrumentation cases cover the upper libraries'
+shared store identity and mutation, HTTP policy, TLS 1.2 success and untrusted TLS rejection,
 storage and lifecycle.
 
 ## Reproduce the API30 gate
@@ -31,14 +31,20 @@ checks Debug and Release compile/runtime classpaths for one Android Core artifac
 per production module at one version, with no JVM fallback.
 
 The temporary directory is retained for diagnostics; the script stops only its own
-fixture. Ensure host ports 18082 and 18443 are free before starting.
-The fixture binds loopback only: HTTP on 18082 and a self-signed TLS endpoint on 18443.
-The emulator reaches them via `10.0.2.2`. The TLS check requires a connection
-attempt to the real fixture with no accepted HTTP request, not merely a missing server.
-It does not exercise a successful HTTPS handshake through the Android transport.
+fixture. Ensure host ports 18082, 18443 and 28443 are free before starting.
+All fixtures bind host loopback: HTTP on 18082, an untrusted TLS endpoint on
+18443 and an independently signed TLS 1.2 endpoint on 28443. The emulator reaches
+them via `10.0.2.2`. The negative check requires increased connection attempts
+and no accepted request; the positive check requires HTTP 200, the expected body,
+and a matching accepted request through the same published Android transport.
+The host prechecks the trusted endpoint with its public CA and normal hostname
+verification. Fixture keys remain in private temporary directories and are
+removed at teardown.
 
-Only the debug manifest permits fixture cleartext; production SDK defaults and the
-release manifest forbid it. Standard AOSP is intentional: its repository metadata
+The runtime runner generates network policy only in its disposable Debug
+source tree. Only the exact emulator alias can use the temporary CA or
+fixture cleartext; other addresses have system trust and deny cleartext.
+The original example and release variant are unchanged. Standard AOSP is intentional: its repository metadata
 references the existing Android SDK license, unlike the separately licensed ATD image.
 Do not accept new agreements implicitly to reproduce this lane.
 
@@ -56,7 +62,7 @@ acceptance file, not the agreement text or the file contents. No label or
 third-party Actions are needed for the Draft branch's normal pull-request CI.
 
 The probe creates fresh AVD state, verifies its name, device set, ABI and
-`ro.build.version.sdk=24`, and runs the same independent Maven app and seven
+`ro.build.version.sdk=24`, and runs the same independent Maven app and eight
 assertions via `:app:connectedDebugAndroidTest`. This is not a Gradle-managed API24
 device; API30 continues to use the unchanged managed device. Check the separate
 step and its exact-commit tests before interpreting API24 as runtime evidence.
@@ -75,5 +81,6 @@ The same thin-upper and Maven classpath checks run. The script builds the
 Debug host and its matching instrumentation APK, prints their paths and writes
 `apk-sha256.txt` in the temporary directory. Keep these local test outputs
 private. Assembly alone does not count as an Android runtime or API24 result.
-This mode never dispatches to a device and does not change the separate CI
-probe's restrictions.
+The build-only app has no temporary fixture trust and is not a substitute for
+the full device runner. This mode never dispatches to a device and does not
+change the separate CI probe's restrictions.

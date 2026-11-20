@@ -26,6 +26,18 @@ class CoreIntegrationTest {
         assertEquals("0", client.execute(HttpRequest("$base/tls-count")).body.decodeToString())
         assertEquals("hello", client.execute(HttpRequest("$base/ok")).body.decodeToString())
     }
+    @Test fun trustedTlsIsAccepted() {
+        val counters = client(timeout = 5000)
+        val before = counters.execute(HttpRequest("$base/android-tls-count")).body.decodeToString().toInt()
+        // Use the production transport and its usual HTTPS verification. The
+        // disposable Debug host, not the SDK, supplies the exact fixture trust.
+        val https = HttpClient(UrlConnectionTransport(), HttpLimits(readTimeoutMillis = 5000))
+        val response = https.execute(HttpRequest("https://10.0.2.2:28443/tls-probe"))
+        assertEquals(200, response.status)
+        assertEquals("hello", response.body.decodeToString())
+        assertEquals(before + 1,
+            counters.execute(HttpRequest("$base/android-tls-count")).body.decodeToString().toInt())
+    }
     @Test fun publishedCoreAndRealHttp() {
         assertEquals(7L, ConfigSnapshot(mapOf("count" to "7")).longValue("count"))
         val client = client()

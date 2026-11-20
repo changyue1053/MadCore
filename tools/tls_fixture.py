@@ -9,8 +9,9 @@ import threading
 
 
 class TLSFixture:
-    def __init__(self, port=18443):
+    def __init__(self, port=18443, *, android_trusted=False):
         self.requested_port = port
+        self._android_trusted = android_trusted
         self._directory = None
         self._server = None
         self._thread = None
@@ -40,6 +41,41 @@ class TLSFixture:
             raise RuntimeError('TLS fixture not started')
         return Path(self._directory) / 'certificate.pem'
 
+    @property
+    def ca_path(self):
+        if not self._android_trusted or self._directory is None:
+            raise RuntimeError('Android TLS CA not available')
+        return Path(self._directory) / 'android-fixture-ca.pem'
+
+    @staticmethod
+    def openssl(*args):
+        subprocess.run(['openssl', *args], check=True, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=30)
+
+    def _generate_android_chain(self, key):
+        directory = key.parent
+        ca_key, csr = directory / 'ca-key.pem', directory / 'server.csr'
+        ca_key.touch(mode=0o600)
+        self.openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-sha256',
+                     '-keyout', str(ca_key), '-out', str(self.ca_path), '-days', '1',
+                     '-subj', '/CN=MadCore ephemeral Android test CA',
+                     '-addext', 'basicConstraints=critical,CA:TRUE,pathlen:0',
+                     '-addext', 'keyUsage=critical,keyCertSign,cRLSign')
+        self.openssl('req', '-new', '-newkey', 'rsa:2048', '-nodes', '-sha256',
+                     '-keyout', str(key), '-out', str(csr),
+                     '-subj', '/CN=MadCore ephemeral Android test leaf')
+        extensions = directory / 'server-extensions.cnf'
+        extensions.write_text(
+            'basicConstraints=critical,CA:FALSE\n'
+            'keyUsage=critical,digitalSignature,keyEncipherment\n'
+            'extendedKeyUsage=serverAuth\n'
+            'subjectAltName=IP:127.0.0.1,IP:10.0.2.2\n',
+            encoding='ascii',
+        )
+        self.openssl('x509', '-req', '-sha256', '-in', str(csr), '-CA', str(self.ca_path),
+                     '-CAkey', str(ca_key), '-CAcreateserial', '-days', '1',
+                     '-extfile', str(extensions), '-out', str(self.certpath))
+
     def start(self):
         if self._server is not None or self._directory is not None:
             raise RuntimeError('TLS fixture already started')
@@ -50,16 +86,19 @@ class TLSFixture:
             # Pre-create with private permissions so openssl never creates a readable key.
             key.touch(mode=0o600)
             print("FIXTURE_STAGE_CERTIFICATE_GENERATION", flush=True)
-            subprocess.run([
-                'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-                '-keyout', str(key), '-out', str(self.certpath), '-days', '1',
-                '-subj', '/CN=MadCore ephemeral loopback test',
-                '-addext', 'subjectAltName=IP:127.0.0.1,IP:10.0.2.2',
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            if self._android_trusted:
+                self._generate_android_chain(key)
+            else:
+                self.openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                             '-keyout', str(key), '-out', str(self.certpath), '-days', '1',
+                             '-subj', '/CN=MadCore ephemeral loopback test',
+                             '-addext', 'subjectAltName=IP:127.0.0.1,IP:10.0.2.2')
             print("FIXTURE_STAGE_CERTIFICATE_READY", flush=True)
             key.chmod(0o600)
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.minimum_version = ssl.TLSVersion.TLSv1_2
+            if self._android_trusted:
+                context.maximum_version = ssl.TLSVersion.TLSv1_2
             context.load_cert_chain(str(self.certpath), str(key))
             owner = self
 

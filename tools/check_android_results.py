@@ -5,6 +5,7 @@ required = {
     ("com.mad.consumer.SharedCoreIntegrationTest", "twoIndependentAarsShareCore"),
     ("com.mad.consumer.StorageIntegrationTest", "independentNamespaces"),
     ("com.mad.consumer.CoreIntegrationTest", "untrustedTlsIsRejected"),
+    ("com.mad.consumer.CoreIntegrationTest", "trustedTlsIsAccepted"),
     ("com.mad.consumer.LifecycleIntegrationTest", "publishedLifecycleOwnership"),
     ("com.mad.consumer.CoreIntegrationTest", "publishedCoreAndRealHttp"),
     ("com.mad.consumer.StorageIntegrationTest", "publishedStorageAndPlatformPersistence"),

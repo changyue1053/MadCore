@@ -6,6 +6,7 @@ import threading
 redirect_lock = threading.Lock()
 redirect_hits = 0
 tls_fixture = None
+android_tls_fixture = None
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -15,6 +16,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ('/tls-ready', '/tls-count', '/tls-attempts'):
             body = (str(tls_fixture.attempts) if self.path == '/tls-attempts' and tls_fixture else str(tls_fixture.hits) if self.path == '/tls-count' and tls_fixture else 'ready' if tls_fixture else 'unavailable').encode('ascii')
             self.send_response(200 if tls_fixture else 503)
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path == '/android-tls-count':
+            body = str(android_tls_fixture.hits).encode('ascii') if android_tls_fixture else b'unavailable'
+            self.send_response(200 if android_tls_fixture else 503)
             self.send_header('Content-Length', str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -76,14 +84,24 @@ if __name__ == '__main__':
     import signal
     def terminate(signum, frame): raise SystemExit(0)
     signal.signal(signal.SIGTERM, terminate)
-    from contextlib import nullcontext
+    from contextlib import ExitStack
+    from pathlib import Path
     from tls_fixture import TLSFixture
     parser = argparse.ArgumentParser()
     parser.add_argument('--tls', action='store_true')
+    parser.add_argument('--android-ca', type=Path, metavar='PUBLIC_CA_DESTINATION')
     args = parser.parse_args()
+    if args.android_ca is not None and not args.tls:
+        parser.error('--android-ca requires --tls')
     print("FIXTURE_STAGE_TLS_START" if args.tls else "FIXTURE_STAGE_HTTP_ONLY", flush=True)
-    with TLSFixture() if args.tls else nullcontext() as active_tls:
-        tls_fixture = active_tls
-        server = ThreadingHTTPServer(('127.0.0.1', 18082), Handler)
+    with ExitStack() as cleanup:
+        if args.tls:
+            tls_fixture = cleanup.enter_context(TLSFixture())
+        if args.android_ca is not None:
+            android_tls_fixture = cleanup.enter_context(TLSFixture(port=28443, android_trusted=True))
+            # Export the public trust anchor once, only to the caller's disposable Debug tree.
+            with args.android_ca.open('xb') as destination:
+                destination.write(android_tls_fixture.ca_path.read_bytes())
+        server = cleanup.enter_context(ThreadingHTTPServer(('127.0.0.1', 18082), Handler))
         print('FIXTURE_STAGE_LISTENING_18082', flush=True)
         server.serve_forever()
