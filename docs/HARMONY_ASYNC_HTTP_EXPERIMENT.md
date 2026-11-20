@@ -29,11 +29,16 @@ A never-settling promise can exhaust capacity rather than permit unbounded work.
 For every started transport call, **`isDrained` remains false**. This is an explicit
 integration limitation for callers requiring proven quiescence.
 
-## Reproduce without changing default source
+## Reference build recipe (paused)
+
+Do not execute these Harmony build commands while SDK-license applicability is
+under review.
 
 1. Build the opt-in native library, then `bash tools/build_copied_http_bridge.sh`.
-2. `MADCORE_COPIED_HTTP=1 bash tools/build_harmony_har.sh` compiles isolated HAR and
-   consumer copies. The normal script remains default-only without this variable.
+2. `MADCORE_COPIED_HTTP=1 bash tools/build_harmony_har.sh` stages the experimental
+   HAR at `build/harmony/experimental/madcore.har`. The default invocation stages
+   only `build/harmony/madcore.har` and rejects experimental native inputs. An old
+   output is not proof that the last build succeeded.
 3. For an authorized device session, use the existing device runbook and controlled
    `tools/http_fixture.py --tls`. Supply loopback HTTP/TLS origins explicitly.
    Select **Run experimental Kotlin RCP bridge**. No public endpoint, trust bypass,

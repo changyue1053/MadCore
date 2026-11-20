@@ -52,33 +52,7 @@ curl --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-ti
 # Check the exact official package and the exact terms fingerprint already in
 # the runner's SDK, not merely a file with the right license ID. Do not print
 # or save terms in build output. sdkmanager itself also checks acceptance.
-python3 - "$work/manifest.xml" "$sdk" "$image" <<'PY'
-import hashlib
-import sys
-from pathlib import Path
-from xml.etree import ElementTree
-
-manifest, sdk, package_id = sys.argv[1:]
-root = ElementTree.parse(manifest).getroot()
-for node in root.iter():
-    node.tag = node.tag.rsplit("}", 1)[-1]
-packages = [p for p in root.findall("remotePackage") if p.get("path") == package_id]
-if len(packages) != 1:
-    raise SystemExit("API24 AOSP x86_64 package absent or ambiguous in official manifest")
-pkg = packages[0]
-refs = [el.get("ref") for el in pkg.findall("uses-license")]
-archives = [el.text for el in pkg.findall("archives/archive/complete/url")]
-if refs != ["android-sdk-license"] or archives != ["x86_64-24_r08.zip"]:
-    raise SystemExit("API24 package archive or license mapping changed; not installing")
-licenses = [el for el in root.findall("license") if el.get("id") == refs[0] and el.text]
-if len(licenses) != 1:
-    raise SystemExit("API24 license text absent or ambiguous in official manifest")
-accepted = Path(sdk) / "licenses" / refs[0]
-fingerprint = hashlib.sha1(licenses[0].text.encode("utf-8")).hexdigest()
-if not accepted.is_file() or fingerprint not in accepted.read_text().split():
-    raise SystemExit("Exact API24 package license is not already accepted on this runner")
-print("Official API24 AOSP x86_64 rev8 manifest and existing SDK license verified")
-PY
+python3 "$root/tools/check_android_api24_license.py" "$work/manifest.xml" "$sdk"
 timeout -k 10s 5m "$sdkmanager" --sdk_root="$sdk" --install --channel=0 "$image" </dev/null
 test -s "$sdk/system-images/android-24/default/x86_64/package.xml"
 

@@ -1,11 +1,49 @@
 #!/usr/bin/env bash
 # Owner authorized CLI 5.1.0.840 / SDK / Hvigor use for this build on 2026-11-18.
-# This is not a grant of distribution rights; no tools or SDK files are published.
+# Historical build evidence is not permission to resume the paused SDK build.
+# No tools, SDK files or generated packages are distributed by this script.
 set -euo pipefail
 umask 077
 root=$(cd "$(dirname "$0")/.." && pwd)
+case "${MADCORE_COPIED_HTTP-0}" in
+  0) har_variant=default; har_output="$root/build/harmony/madcore.har" ;;
+  1) har_variant=experimental; har_output="$root/build/harmony/experimental/madcore.har" ;;
+  *) echo 'MADCORE_COPIED_HTTP must be 0 or 1' >&2; exit 2 ;;
+esac
+if [[ $# == 1 && "$1" == --print-output-path ]]; then
+  printf '%s\n' "$har_output"
+  exit 0
+fi
+if (( $# != 0 )); then
+  echo 'Usage: bash tools/build_harmony_har.sh [--print-output-path]' >&2
+  exit 2
+fi
+
 work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/madcore-har.XXXXXXXX")
-trap 'rm -rf -- "$work"' EXIT
+output_tmp=
+trap 'rm -rf -- "$work"; if [[ -n "$output_tmp" ]]; then rm -f -- "$output_tmp"; fi' EXIT
+
+# Both variants link to the same native build paths. Check private copies
+# before tool acquisition and package exactly the checked inputs.
+native="$root/madcore/build/bin/ohosArm64/releaseShared"
+snapshot="$work/native"
+mkdir -p "$snapshot"
+cp "$native/"libmadcore{,_napi}.so "$snapshot/"
+if [[ "$har_variant" == experimental ]]; then
+  cp "$native/libmadcore_copied_bridge.so" "$snapshot/"
+  python3 "$root/tools/check_copied_http_link.py" "$snapshot/libmadcore.so" "$snapshot/libmadcore_copied_bridge.so"
+else
+  for library in "$snapshot/"libmadcore{,_napi}.so; do
+    if ! symbols=$(readelf --dyn-syms --wide "$library"); then
+      echo 'Cannot check default native input symbols; refusing to package.' >&2
+      exit 1
+    fi
+    if grep -Eq 'mc_http_|madcore_copied_http' <<< "$symbols"; then
+      echo 'Experimental symbols in default native inputs; rebuild the default native variant.' >&2
+      exit 1
+    fi
+  done
+fi
 archive="$work/cli.zip"
 curl --fail --silent --show-error --proto '=https' --connect-timeout 30 --max-time 900 \
   --max-filesize 3221225472 --output "$archive" \
@@ -37,9 +75,9 @@ project="$work/sdk-project"
 mkdir -p "$project"
 cp -R "$root/harmony/." "$project/"
 mkdir -p "$project/madcore/libs/arm64-v8a"
-cp "$root/madcore/build/bin/ohosArm64/releaseShared/"libmadcore{,_napi}.so "$project/madcore/libs/arm64-v8a/"
-if [[ "${MADCORE_COPIED_HTTP:-0}" == 1 ]]; then
-  cp "$root/madcore/build/bin/ohosArm64/releaseShared/libmadcore_copied_bridge.so" "$project/madcore/libs/arm64-v8a/"
+cp "$snapshot/"libmadcore{,_napi}.so "$project/madcore/libs/arm64-v8a/"
+if [[ "$har_variant" == experimental ]]; then
+  cp "$snapshot/libmadcore_copied_bridge.so" "$project/madcore/libs/arm64-v8a/"
   python3 "$root/tools/prepare_copied_http_har.py" sdk "$project"
 fi
 (cd "$project" && ohpm install --all && hvigorw assembleHar --mode module -p module=madcore@default -p product=default -p buildMode=release --no-daemon)
@@ -126,7 +164,7 @@ rm -rf -- "$composition/alpha" "$composition/beta"
 # Also assemble an independent unsigned application, still using only the HAR.
 app="$work/app-consumer"
 cp -R "$root/examples/harmony-consumer" "$app"
-if [[ "${MADCORE_COPIED_HTTP:-0}" == 1 ]]; then
+if [[ "$har_variant" == experimental ]]; then
   python3 "$root/tools/prepare_copied_http_har.py" app "$app"
 fi
 mkdir -p "$app/libs"
@@ -156,10 +194,7 @@ cp "$cxx" "$app/entry/libs/arm64-v8a/"
 hap=$(find "$app/entry/build" -name '*unsigned.hap' -type f -print -quit)
 if [[ -z "$hap" ]]; then hap=$(find "$app/entry/build" -name '*.hap' -type f -print -quit); fi
 test -n "$hap"
-python3 "$root/tools/check_harmony_composition.py" "$har" "$composition/alpha.har" "$composition/beta.har" "$hap"
-mkdir -p "$root/build/harmony"
-cp "$har" "$root/build/harmony/madcore.har"
-echo 'HAR build, separate HAR consumer and unsigned app assembly passed; no Harmony device execution or redistribution clearance'
+python3 "$root/tools/check_harmony_composition.py" "$har" "$composition/alpha.har" "$composition/beta.har" "$hap" "$har_variant"
 
 # Fail rather than silently restoring the vulnerable wrapper-managed pnpm dependency.
 if [[ -d "$HOME/.hvigor" ]] && find "$HOME/.hvigor" -path '*/node_modules/pnpm/package.json' -print -quit | grep -q .; then
@@ -167,3 +202,12 @@ if [[ -d "$HOME/.hvigor" ]] && find "$HOME/.hvigor" -path '*/node_modules/pnpm/p
   exit 1
 fi
 echo 'Hvigor npm mode compatibility passed with isolated HOME and no wrapper pnpm installed'
+
+# Stage only the selected local output after every gate passes. Keep the
+# temporary file alongside its destination for atomic replacement.
+mkdir -p "$(dirname "$har_output")"
+output_tmp=$(mktemp "${har_output}.XXXXXXXX")
+cp -- "$har" "$output_tmp"
+python3 -c 'import os, sys; os.replace(sys.argv[1], sys.argv[2])' "$output_tmp" "$har_output"
+output_tmp=
+printf 'Checked %s HAR: %s; no Harmony device execution or redistribution clearance\n' "$har_variant" "$har_output"

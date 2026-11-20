@@ -24,6 +24,8 @@ jobs:
       - run: python3 tools/test_publication_graph.py
       - run: python3 tools/test_harmony_binary_inventory.py
       - run: python3 tools/test_upper_aars.py
+      - run: python3 tools/test_android_maven_consumer_modes.py
+      - run: python3 tools/test_android_api24_license.py
       - run: python3 tools/test_harmony_composition.py
       - run: python3 tools/test_result_gate_tests.py && python3 -O tools/test_result_gate_tests.py
       - run: python3 tools/test_ios_host_runner.py && python3 -O tools/test_ios_host_runner.py
@@ -53,7 +55,7 @@ jobs:
           python3 tools/check_jvm_classpath.py "$consumer/runtime-classpath.json"
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -69,6 +71,10 @@ jobs:
           for module in core-extension core-time core-json core-testkit core-logging core-config core-net core-storage core-lifecycle madcore; do
             test -s "$module/build/outputs/aar/$module-release.aar"
           done
+      - name: Build the independent host and instrumentation APKs (no device)
+        timeout-minutes: 8
+        shell: bash
+        run: bash tools/test_android_maven_consumer.sh "$GITHUB_WORKSPACE/build/staging-repository/android" --build-only
       - name: Test an independent Maven Android app on a managed emulator
         timeout-minutes: 25
         shell: bash
@@ -129,9 +135,21 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          export MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          MADCORE_IOS_SIMULATOR_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
           xcrun simctl boot "$MADCORE_IOS_SIMULATOR_UDID" || true
           xcrun simctl bootstatus "$MADCORE_IOS_SIMULATOR_UDID" -b
+          xcodebuild -version
+          xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          udid = sys.argv[1]
+          matches = [(runtime, device) for runtime, devices in json.load(sys.stdin)["devices"].items()
+                     for device in devices if device.get("udid") == udid]
+          if len(matches) != 1 or matches[0][1].get("state") != "Booted":
+              sys.exit("Expected exactly one booted simulator matching the chosen UDID")
+          runtime, device = matches[0]
+          model = device["name"]
+          print(f"MadCore iOS simulator: runtime={runtime}; model={model}; udid={udid}")
+          ' "$MADCORE_IOS_SIMULATOR_UDID"
           echo "MADCORE_IOS_SIMULATOR_UDID=$MADCORE_IOS_SIMULATOR_UDID" >> "$GITHUB_ENV"
       - name: Run native and independent iOS host behavior tests
         timeout-minutes: 15

@@ -13,8 +13,12 @@ def names(path):
         return [item.name for item in archive.getmembers() if item.isfile()]
 
 
-def check(core, alpha, beta, hap):
+def check(core, alpha, beta, hap, variant='default'):
+    if variant not in ('default', 'experimental'):
+        raise ValueError('Unknown HAR variant: ' + variant)
     expected = {'libmadcore.so', 'libmadcore_napi.so'}
+    bridge = 'libmadcore_copied_bridge.so'
+    bridge_count = int(variant == 'experimental')
     for upper in (alpha, beta):
         files = names(upper)
         if any(n.endswith(('.so', '.har', '.hap')) for n in files):
@@ -26,10 +30,14 @@ def check(core, alpha, beta, hap):
         for library in expected:
             if sum(PurePosixPath(n).name == library for n in files) != 1:
                 raise ValueError('Expected exactly one packaged copy of ' + library)
-    print('Two thin upper HARs and one Core native library pair in unsigned HAP; runtime NOT tested')
+        if sum(PurePosixPath(n).name == bridge for n in files) != bridge_count:
+            raise ValueError(f'{variant}: expected {bridge_count} copies of {bridge} in {archive}')
+        if archive == core and any(PurePosixPath(n).name == 'libc++_shared.so' for n in files):
+            raise ValueError('The Core HAR must not bundle the test host C++ runtime')
+    print(f'{variant}: two thin upper HARs, one Core native library pair and {bridge_count} bridge(s); runtime NOT tested')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
-        raise SystemExit('Expected core HAR, alpha HAR, beta HAR, unsigned HAP')
+    if len(sys.argv) != 6:
+        raise SystemExit('Expected core HAR, alpha HAR, beta HAR, unsigned HAP, and default/experimental variant')
     check(*sys.argv[1:])

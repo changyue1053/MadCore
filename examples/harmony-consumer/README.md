@@ -10,10 +10,13 @@ This directory is a standalone Stage application. It imports only the packaged
 - Use the bundle's configured SDK, Node, ohpm and Hvigor. This sample does not
   download tools, accept licenses or configure credentials.
 
-## Build after the library's HAR job passes
+## Reference build recipe (paused)
 
-Copy the produced HAR to `libs/madcore.har`. Do not create a placeholder archive.
-Run from this directory with the authorized toolchain on PATH:
+Do not execute the recipe while SDK-license applicability is under review.
+This consumer's default input is `build/harmony/madcore.har` from the MadCore
+checkout, not the separate opt-in `build/harmony/experimental/madcore.har`.
+When resuming an authorized default build, copy that default HAR to
+`libs/madcore.har`. Do not create a placeholder archive. From this directory:
 
 ```sh
 test -s libs/madcore.har

@@ -8,14 +8,15 @@ required merely to make this foundation useful.
 
 ## Current evidence and supported scope
 
-Reviewed implementation baseline for this status update: **e828305d121cf900502da708d448f33d7efcb645**.
-[CI 44527158033](https://github.com/changyue1053/MadCore/actions/runs/44527158033)
-passed Android and JVM; Harmony was intentionally skipped. iOS remained queued
-then cancelled with no runner or steps, both initially and after one targeted retry.
-This CI run is not fully green. **Harmony tool execution and local builds are paused**
-pending SDK-license applicability review for reusable SDK development, not merely
-binary redistribution. No further retry or Harmony run is implied by these docs.
-The exact-head local iOS staging/consumer evidence below is narrower than full CI.
+Latest completed CI baseline before the acceptance-hardening work:
+[`9b8b8fe1`, run 44668976044](https://github.com/changyue1053/MadCore/actions/runs/44668976044).
+JVM and iOS passed. Android passed all seven independent Maven-consumer checks
+on API30. The separate API24 image license fingerprint preflight then failed
+before installation or boot, so the Android job and overall run are not green;
+this is not an API24 runtime failure. Harmony was intentionally skipped. **Harmony
+tool execution and local builds remain paused** pending license applicability
+review for reusable SDK development, not merely binary redistribution.
+These results apply to that exact commit, not to later edits.
 
 Historical verified four-job baseline: **6d5b5c6940d9d026ed68020c23aec5bcb65998a6**,
 [CI 44463243979](https://github.com/changyue1053/MadCore/actions/runs/44463243979),
@@ -40,33 +41,35 @@ not an attached/published SDK binary. Existing private HAPs are evaluation outpu
   four-session C registry reclamation after actual Worker environment destruction.
   Details and artifact hashes: [experiment evidence](HARMONY_ASYNC_HTTP_EXPERIMENT.md).
 
-## Finite remaining delivery gates
+## Execution plan and release gates
 
-1. **Supported API boundary and lifetime:** keep the copied HTTP bridge opt-in until
-   its production host integration and teardown contract are approved. Its value-ID
-   detachment and bounded C state are distinct from RCP quiescence. Worker cleanup
-   testing uses queued, undispatched requests; it does not prove teardown during
-   active RCP callbacks. Started calls retain `isDrained=false`; neither elapsed
-   time nor Promise settlement is presented as native callback drain.
-2. **Storage scope:** real Harmony Preferences is verified as an ArkTS API. There
-   is no persistent Harmony adapter implementing Kotlin `StringStore` across the
-   runtime boundary. Require that adapter only if the release promises shared
-   Kotlin persistence; otherwise document host-owned ArkTS integration explicitly.
-3. **Device/compatibility matrix:** choose actual supported minimum platforms.
-   API18 Harmony compilation is not API18 runtime proof; API23 emulator is not a
-   physical device. Android API24 and physical iOS/Harmony devices
-   remain unverified. General version-skew compatibility is not established by
-   any single consumer experiment. Do not expand the matrix without an app/release requirement.
-4. **Distribution evidence:** select the project license and confirm source rights;
-   inventory exact linked/copied runtime components, applicable licenses and NOTICE
-   texts. Pinned SDK tool-use approval and public source visibility do not settle
-   binary redistribution. See [distribution review](DISTRIBUTION_REVIEW.md).
-5. **Release decision:** choose version, artifact destination and compatibility
-   policy, then obtain explicit merge/release approval. Current snapshot/Draft PR
-   and private test HAPs are evaluation outputs; no public binary release is approved.
+One release candidate is in scope: a stable foundation consumed as artifacts by
+new apps and upper SDKs, with an explicit platform capability matrix. Do not
+grow the module list or pull in product services to close the current release.
 
-No new product feature is required merely to close these gates. Scope can exclude
-experimental networking rather than imply unverified three-platform parity.
+| Phase | Work | Exit evidence |
+| --- | --- | --- |
+| 1. Make acceptance repeatable | Isolate Android consumer APK assembly from device provisioning. Record iOS simulator OS and Xcode for the independent host. Isolate default Harmony packaging from the opt-in bridge and use offline packaging guards while the toolchain is paused. | Build/inspection checks do not claim runtime. Exact commit, platform and environment are visible; experimental libraries cannot be mistaken for the default HAR. |
+| 2. Close the runtime matrix | Android: keep the API30 Maven-only gate, add a controlled successful HTTPS case paired with the untrusted case, and verify the declared API24 minimum on an authorized device/AVD. iOS: keep simulator and independent Swift/Kotlin consumer checks, inspect the final app's deployment target, and validate a signed arm64 host on a supported iPhone. Harmony: after clearance, build the default HAR, repeat double-HAR and API23 runtime checks and validate the intended minimum plus a supported physical device. | All claimed support points have direct evidence, including SDK/runtime version, device or simulator identity and the exact cases that ran. API18 compilation alone does not qualify as API18 runtime support. A subset run is reported as such. |
+| 3. Freeze the public contract and release toolchain | Compare the evaluation pins with an upstream-supported build combination and rerun on the intended release configuration. Freeze stable public surfaces, verify binary/API baseline and upper-SDK dependency identity; document the public integration path, data bounds, thread/lifecycle contracts and supported OS/architectures. Align Android/iOS staging and the Harmony artifact plan without merging target-specific Maven repositories. | Fresh hosts compile, link and run from exact candidate artifacts with one Core per app, no producer checkout, no testkit or experimental dependencies, and named compatibility limits. |
+| 4. Make distribution reproducible and reviewable | Inventory linked/copied runtime code and notices for each artifact. Resolve source license and upstream rights, immutable version and destinations, release artifact checksums and provenance. Keep Harmony publication closed while its tool/runtime rights are unresolved. | Reviewed component and license inventory, immutable candidate manifest, and approved license, destination and version. Separate preview and production coordinates. |
+| 5. Release and maintain | Review the exact release candidate, then merge/publish only with separate authorization. Verify published hashes and fresh install; establish compatibility and maintenance policy. | Exact published versions and install/behavior results are traceable; release notes distinguish stable, preview and unsupported behavior. |
+
+The common contracts, packaging checks and documentation can proceed in parallel
+with environment and license evidence. Do not lower or raise a customer-facing
+minimum to turn a red result green. Use a narrower, explicitly approved preview
+scope if a release gate cannot be met, not an implicit production exception.
+
+- **Harmony Kotlin storage:** ArkTS Preferences is host-owned; it is not a
+  persistent Kotlin `StringStore`. A new cross-runtime storage adapter is a separate
+  feature unless the planned release requires that promise.
+- **Harmony Kotlin copied HTTP:** keep the bridge opt-in. A bounded C registry
+  and Worker cleanup for queued work do not prove active RCP callback drain.
+  Started calls retain `isDrained=false`; neither elapsed time nor Promise
+  settlement is a native-drain guarantee.
+- **Authorization:** no existing CI result, Draft PR or temporary artifact
+  authorizes accepting new terms, launching paid infrastructure, uploading
+  artifacts to a third party, merging or releasing.
 
 ## Evidence discipline
 
