@@ -15,10 +15,17 @@ def target = providers.gradleProperty('madcore.target').getOrElse('jvm')
 if (!(target in ['jvm', 'android', 'ios', 'ohos'])) {
     throw new GradleException('madcore.target must be jvm, android, ios or ohos')
 }
+// This manifest is the producer version authority; consumers still pin independently.
+def manifest = layout.projectDirectory.file('SDK-MODULES.json')
+def sdk = new groovy.json.JsonSlurper().parseText(providers.fileContents(manifest).asText.get())
+def sdkVersion = sdk.version
+if (!(sdkVersion instanceof String) || sdkVersion.length() > 64 ||
+        !(sdkVersion ==~ /(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)?/)) {
+    throw new GradleException('Invalid SDK-MODULES.json version; expected X.Y.Z with an optional Maven qualifier')
+}
 def abiProbe = providers.gradleProperty('madcore.abiProbe').getOrElse('false') == 'true'
 def abiModules = [] as Set
 if (abiProbe) {
-    def sdk = new groovy.json.JsonSlurper().parse(file('SDK-MODULES.json'))
     abiModules = (sdk.production + [sdk.umbrella]) as Set
 }
 subprojects {
@@ -26,7 +33,7 @@ subprojects {
     apply plugin: 'maven-publish'
     if (target == 'android') apply plugin: 'com.android.library'
     group = 'com.mad.core'
-    version = '0.1.0-SNAPSHOT'
+    version = sdkVersion
     repositories {
         if (target == 'ohos') maven {
             url = uri('https://maven.eazytec-cloud.com/nexus/repository/maven-public/')

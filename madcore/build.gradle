@@ -1,7 +1,43 @@
+import org.gradle.work.DisableCachingByDefault
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
+
+@DisableCachingByDefault(because = 'Writes one small Kotlin source file')
+abstract class GenerateMadCoreVersion extends DefaultTask {
+    @Input
+    abstract Property<String> getSdkVersion()
+
+    @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract RegularFileProperty getSourceTemplate()
+
+    @OutputDirectory
+    abstract DirectoryProperty getOutputDirectory()
+
+    @TaskAction
+    void generate() {
+        def token = '@MADCORE_VERSION@'
+        def template = sourceTemplate.get().asFile.getText('UTF-8')
+        if (template.count(token) != 1) {
+            throw new GradleException('Expected one SDK version token in MadCoreInfo.kt.template')
+        }
+        def source = outputDirectory.file('com/mad/core/MadCoreInfo.kt').get().asFile
+        java.nio.file.Files.createDirectories(source.parentFile.toPath())
+        // Root project validates the version using an ASCII-only, source-safe grammar.
+        source.setText(template.replace(token, sdkVersion.get()), 'UTF-8')
+    }
+}
+
+def generatedVersion = tasks.register('generateMadCoreVersion', GenerateMadCoreVersion) {
+    sdkVersion.set(project.version.toString())
+    sourceTemplate.set(layout.projectDirectory.file('version-template/MadCoreInfo.kt.template'))
+    outputDirectory.set(layout.buildDirectory.dir('generated/madcoreInfo/commonMain'))
+}
 
 kotlin {
     sourceSets {
+        // Gradle carries the producer task dependency with this source dir.
+        // Use the long-standing source-set API on both official and forked KGP.
+        commonMain.kotlin.srcDir(generatedVersion)
         commonMain.dependencies {
             api project(':core-extension')
             api project(':core-time')
